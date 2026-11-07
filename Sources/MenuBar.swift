@@ -103,7 +103,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         add("显示桌面天气      ⌃⌥D", #selector(toggleEnabled), menu, on: s.enabled)
         add("显示天气角标", #selector(toggleInfo), menu, on: s.showInfo)
         add("显示星座连线与星名", #selector(toggleStarLabels), menu, on: s.showConstellations)
-        add("雨声", #selector(toggleRainSound), menu, on: s.rainSoundEnabled)
         add("实景模式（真实照片底图）", #selector(toggleRealScene), menu, on: s.realSceneEnabled)
         menu.addItem(.separator())
 
@@ -119,12 +118,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             add(title, #selector(setOpacity(_:)), opacity, on: abs(s.skyOpacity - v) < 0.01, tag: v)
         }
         submenu("背景浓度", opacity, menu)
-
-        let rainVol = NSMenu()
-        for (title, v) in [("轻", 0.4), ("适中", 0.7), ("大", 1.0)] as [(String, Double)] {
-            add(title, #selector(setRainVolume(_:)), rainVol, on: abs(s.rainSoundVolume - v) < 0.01, tag: v)
-        }
-        submenu("雨声音量", rainVol, menu)
 
         let freq = NSMenu()
         for m in [5, 10, 30] {
@@ -212,17 +205,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         Settings.shared.showConstellations = !Settings.shared.showConstellations
     }
 
-    @objc private func toggleRainSound() {
-        Settings.shared.rainSoundEnabled = !Settings.shared.rainSoundEnabled
-    }
-
     @objc private func toggleRealScene() {
         Settings.shared.realSceneEnabled = !Settings.shared.realSceneEnabled
-    }
-
-    @objc private func setRainVolume(_ sender: NSMenuItem) {
-        guard let v = sender.representedObject as? Double else { return }
-        Settings.shared.rainSoundVolume = v
     }
 
     @objc private func setIntensity(_ sender: NSMenuItem) {

@@ -80,18 +80,6 @@ final class Settings {
         set { write("skyOpacity", min(1.0, max(0.0, newValue))) }
     }
 
-    /// 雨声开关：仅在雨天播放，音量随雨量自动变化
-    var rainSoundEnabled: Bool {
-        get { read("rainSoundEnabled", true) }
-        set { write("rainSoundEnabled", newValue) }
-    }
-
-    /// 雨声总音量 0 ... 1（在此之上再按雨量缩放）
-    var rainSoundVolume: Double {
-        get { read("rainSoundVolume", 0.7) }
-        set { write("rainSoundVolume", min(1.0, max(0.0, newValue))) }
-    }
-
     /// 实景模式：用真实照片做底图，云/雨雪/闪电以半透明动画层叠加在上面。
     /// 找不到照片素材时自动回退到程序化天空。
     var realSceneEnabled: Bool {
