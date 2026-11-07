@@ -104,6 +104,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         add("显示天气角标", #selector(toggleInfo), menu, on: s.showInfo)
         add("显示星座连线与星名", #selector(toggleStarLabels), menu, on: s.showConstellations)
         add("雨声", #selector(toggleRainSound), menu, on: s.rainSoundEnabled)
+        add("实景模式（真实照片底图）", #selector(toggleRealScene), menu, on: s.realSceneEnabled)
         menu.addItem(.separator())
 
         let intensity = NSMenu()
@@ -213,6 +214,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleRainSound() {
         Settings.shared.rainSoundEnabled = !Settings.shared.rainSoundEnabled
+    }
+
+    @objc private func toggleRealScene() {
+        Settings.shared.realSceneEnabled = !Settings.shared.realSceneEnabled
     }
 
     @objc private func setRainVolume(_ sender: NSMenuItem) {

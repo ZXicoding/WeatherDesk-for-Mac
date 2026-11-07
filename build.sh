@@ -33,6 +33,9 @@ if [ ! -f "Resources/rain.wav" ]; then
 fi
 cp "Resources/rain.wav" "$APP/Contents/Resources/rain.wav"
 
+echo "▸ 打包实景照片"
+cp Resources/photos/*.jpg "$APP/Contents/Resources/"
+
 echo "▸ 签名"
 codesign --force --deep --sign - "$APP" 2>/dev/null || true
 xattr -cr "$APP" 2>/dev/null || true

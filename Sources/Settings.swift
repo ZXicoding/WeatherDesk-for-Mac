@@ -92,6 +92,13 @@ final class Settings {
         set { write("rainSoundVolume", min(1.0, max(0.0, newValue))) }
     }
 
+    /// 实景模式：用真实照片做底图，云/雨雪/闪电以半透明动画层叠加在上面。
+    /// 找不到照片素材时自动回退到程序化天空。
+    var realSceneEnabled: Bool {
+        get { read("realSceneEnabled", true) }
+        set { write("realSceneEnabled", newValue) }
+    }
+
     var refreshMinutes: Int {
         get { read("refreshMinutes", 10) }
         set { write("refreshMinutes", min(60, max(2, newValue))) }

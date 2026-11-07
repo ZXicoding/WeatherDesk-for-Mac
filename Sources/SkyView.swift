@@ -13,6 +13,8 @@ import QuartzCore
 final class SkyView: NSView {
 
     // 图层栈（由下至上）
+    /// 实景模式（方案一）的照片底图：位于最底层，开启时顶替 sky 渐变
+    private let sceneLayer = CALayer()
     private let sky = CAGradientLayer()
     private let horizon = CAGradientLayer()
     private let twilightGlow = CAGradientLayer()
@@ -74,7 +76,7 @@ final class SkyView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         root.frame = bounds
-        for l in [sky, horizon, twilightGlow, lightDome, scatter, starHost,
+        for l in [sceneLayer, sky, horizon, twilightGlow, lightDome, scatter, starHost,
                   starField, twinkleHost, labelHost, meteorHost,
                   cloudHost, fogHost, particleHost,
                   vignette, flash, boltHost, infoHost] { l.frame = bounds }
@@ -144,7 +146,12 @@ final class SkyView: NSView {
         boltHost.opacity = 0
         particleHost.masksToBounds = true
 
-        for l in [sky, horizon, lightDome, twilightGlow, scatter, starHost, meteorHost,
+        sceneLayer.contentsGravity = .resizeAspectFill
+        sceneLayer.masksToBounds = true
+        sceneLayer.isHidden = true
+        sceneLayer.opacity = 0
+
+        for l in [sceneLayer, sky, horizon, lightDome, twilightGlow, scatter, starHost, meteorHost,
                   bodyGlow, bodyLayer, cloudHost, fogHost, particleHost,
                   vignette, flash, boltHost, infoHost] {
             root.addSublayer(l)
@@ -207,22 +214,49 @@ final class SkyView: NSView {
                       pal.mid.cgColor,
                       pal.mid.mixed(pal.bottom, 0.58).cgColor,
                       pal.bottom.cgColor]
-        sky.opacity = Float(Settings.shared.skyOpacity)
+        // 实景模式（方案一）：真实照片做底，云 / 雨 / 雪 / 闪电继续叠加；
+        // 程序化天空渐变、日月与星图让位。找不到照片素材时自动回退。
+        let scene = Settings.shared.realSceneEnabled ? Self.sceneImage(for: w, st: st) : nil
         let cloudVeil = pow(max(0, 1 - Double(w.cloudCover) / 100), 1.15)
         // 实时数据下星点可见度直接由真实的暮光暗度驱动，太阳落山即亮起
         let night = w.simulated ? st.stars : frame.darkness
-        starHost.opacity = Float(night * cloudVeil)
+        if let img = scene {
+            CATransaction.setDisableActions(true)
+            sceneLayer.contents = img
+            sceneLayer.isHidden = false
+            sceneLayer.opacity = Float(Settings.shared.skyOpacity)
+            sky.opacity = 0
+            starHost.opacity = 0
+        } else {
+            sceneLayer.isHidden = true
+            sceneLayer.opacity = 0
+            sky.opacity = Float(Settings.shared.skyOpacity)
+            starHost.opacity = Float(night * cloudVeil)
+        }
         applyLighting(st: st, pal: pal, w: w, frame: frame)
+        if scene != nil {
+            // 实景模式下大气光照层全部退场（照片自带光照），雾幕与角标保留
+            horizon.opacity = 0
+            twilightGlow.opacity = 0
+            lightDome.opacity = 0
+            scatter.opacity = 0
+        }
         CATransaction.commit()
 
         CATransaction.begin()
-        if animated {
-            CATransaction.setAnimationDuration(20)
-            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .linear))
-        } else {
+        if scene != nil {
             CATransaction.setDisableActions(true)
+            bodyLayer.opacity = 0
+            bodyGlow.opacity = 0
+        } else {
+            if animated {
+                CATransaction.setAnimationDuration(20)
+                CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .linear))
+            } else {
+                CATransaction.setDisableActions(true)
+            }
+            positionBody(st: st, pal: pal, w: w, frame: frame)
         }
-        positionBody(st: st, pal: pal, w: w, frame: frame)
         CATransaction.commit()
 
         if rebuild {
@@ -240,6 +274,39 @@ final class SkyView: NSView {
 
     private static func cloudTarget(_ w: Weather) -> Int {
         min(12, w.condition.cloudBase + Int(Double(w.cloudCover) / 20.0))
+    }
+
+    // MARK: 实景模式（方案一：真实照片底图 + 动画层叠加）
+
+    private static var sceneCache: [String: CGImage] = [:]
+    private static var sceneMissed: Set<String> = []
+
+    /// 按「天气 × 相位」挑实景照片；Bundle 里找不到素材时返回 nil（回退程序化天空）
+    private static func sceneImage(for w: Weather, st: SkyState) -> CGImage? {
+        let name: String
+        switch w.condition {
+        case .drizzle, .rain, .heavyRain, .thunder, .fog:
+            name = "scene-rain"
+        case .snow, .sleet:
+            name = "scene-snow"
+        case .clear, .partlyCloudy, .cloudy, .overcast:
+            switch st.phase {
+            case .night:       name = "scene-night"
+            case .dawn, .dusk: name = "scene-sunset"
+            case .day:         name = "scene-clear"
+            }
+        }
+        if let hit = sceneCache[name] { return hit }
+        guard !sceneMissed.contains(name),
+              let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
+              let img = NSImage(contentsOf: url)?
+                  .cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else {
+            sceneMissed.insert(name)
+            return nil
+        }
+        sceneCache[name] = img
+        return img
     }
 
     /// 预览用：当天 22:00（当地时区）的真实星空
@@ -908,7 +975,9 @@ final class SkyView: NSView {
             let names = frame.visibleConstellations(2).joined(separator: " · ")
             line(names.isEmpty ? "今夜云层较厚，星星被遮住了" : "今夜可见：\(names) 等", 24,
                  .systemFont(ofSize: 10, weight: .medium), 0.78)
-            var tail = "真实星图 \(starCount) 颗 · 月相 \(Int(frame.moonIllumination * 100))%"
+            var tail = (Settings.shared.realSceneEnabled && !sceneLayer.isHidden)
+                ? "实景模式 · 月相 \(Int(frame.moonIllumination * 100))%"
+                : "真实星图 \(starCount) 颗 · 月相 \(Int(frame.moonIllumination * 100))%"
             if let mr = Astronomy.dayEvents(date: Date(), place: w.place).moonrise {
                 tail += " · 月升 \(hhmm(mr))"
             }
