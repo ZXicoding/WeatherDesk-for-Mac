@@ -281,7 +281,10 @@ final class SkyView: NSView {
     private static var sceneCache: [String: CGImage] = [:]
     private static var sceneMissed: Set<String> = []
 
-    /// 按「天气 × 相位」挑实景照片；Bundle 里找不到素材时返回 nil（回退程序化天空）
+    /// 按「天气 × 相位」挑实景照片。
+    /// 优先所在地实景包：`~/Library/Application Support/天气桌面/scenes/<地区>/scene-*.jpg`
+    /// （地区目录依次尝试「区域-城市 / 城市 / default」），没有匹配再回退 Bundle 内置图；
+    /// 都找不到时返回 nil（回退程序化天空）。
     private static func sceneImage(for w: Weather, st: SkyState) -> CGImage? {
         let name: String
         switch w.condition {
@@ -297,15 +300,50 @@ final class SkyView: NSView {
             }
         }
         if let hit = sceneCache[name] { return hit }
-        guard !sceneMissed.contains(name),
-              let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
-              let img = NSImage(contentsOf: url)?
-                  .cgImage(forProposedRect: nil, context: nil, hints: nil)
+        guard !sceneMissed.contains(name) else { return nil }
+
+        // 1) 所在地实景包
+        let fm = FileManager.default
+        let folderNames = [sanitized("\(w.place.region)-\(w.place.name)"),
+                           sanitized(w.place.name),
+                           "default"]
+        for folder in folderNames {
+            let url = scenesRoot.appendingPathComponent(folder)
+                .appendingPathComponent("\(name).jpg")
+            if let img = loadImage(at: url) {
+                sceneCache[name] = img
+                return img
+            }
+        }
+
+        // 2) Bundle 内置
+        guard let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
+              let img = loadImage(at: url)
         else {
             sceneMissed.insert(name)
             return nil
         }
         sceneCache[name] = img
+        return img
+    }
+
+    private static var scenesRoot: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent("天气桌面/scenes", isDirectory: true)
+    }
+
+    /// 文件夹名里不允许的字符替换掉
+    private static func sanitized(_ s: String) -> String {
+        s.replacingOccurrences(of: "/", with: "_")
+         .replacingOccurrences(of: ":", with: "_")
+         .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func loadImage(at url: URL) -> CGImage? {
+        guard FileManager.default.fileExists(atPath: url.path),
+              let img = NSImage(contentsOf: url)?
+                  .cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else { return nil }
         return img
     }
 
