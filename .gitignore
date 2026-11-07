@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# 构建产物（由 build.sh 生成到父目录）
+*.app
+*.zip
+*.icns
+*.iconset
+天气桌面-效果预览.png
