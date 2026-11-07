@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             WeatherService.shared.demo = Demo(rawValue: String(arg.dropFirst("--demo=".count)))
         }
 
+        RainAudio.shared.configure()
         DesktopController.shared.start()
 
         let b = MenuBarController()

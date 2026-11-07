@@ -27,6 +27,12 @@ swiftc -O -swift-version 5 -parse-as-library -o "$BUILD/iconmaker" tools/IconMak
 "$BUILD/iconmaker" "$BUILD/AppIcon.iconset"
 iconutil -c icns "$BUILD/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
 
+echo "▸ 准备雨声素材（如缺失则离线合成）"
+if [ ! -f "Resources/rain.wav" ]; then
+  python3 tools/make_rain_sound.py
+fi
+cp "Resources/rain.wav" "$APP/Contents/Resources/rain.wav"
+
 echo "▸ 签名"
 codesign --force --deep --sign - "$APP" 2>/dev/null || true
 xattr -cr "$APP" 2>/dev/null || true

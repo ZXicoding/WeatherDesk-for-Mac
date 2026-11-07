@@ -50,7 +50,7 @@ final class DesktopController {
             e.window.close()
         }
         entries.removeAll()
-        guard Settings.shared.enabled else { return }
+        guard Settings.shared.enabled else { RainAudio.shared.stop(); return }
 
         let base = Int(CGWindowLevelForKey(.desktopWindow))
         let level = NSWindow.Level(rawValue: base + levelOffset)
@@ -97,7 +97,9 @@ final class DesktopController {
     }
 
     private func apply(_ w: Weather, animated: Bool) {
-        guard !entries.isEmpty, Settings.shared.enabled else { return }
+        guard Settings.shared.enabled else { RainAudio.shared.stop(); return }
+        guard !entries.isEmpty else { return }
         for e in entries { e.view.apply(weather: w, animated: animated) }
+        RainAudio.shared.update(for: w)
     }
 }
