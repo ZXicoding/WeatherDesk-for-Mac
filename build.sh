@@ -28,10 +28,10 @@ swiftc -O -swift-version 5 -parse-as-library -o "$BUILD/iconmaker" tools/IconMak
 iconutil -c icns "$BUILD/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
 
 echo "▸ 准备雨声素材（如缺失则离线合成）"
-if [ ! -f "Resources/rain.wav" ]; then
+if [ ! -f "Resources/rain-light.wav" ] || [ ! -f "Resources/rain-mid.wav" ] || [ ! -f "Resources/rain-heavy.wav" ]; then
   python3 tools/make_rain_sound.py
 fi
-cp "Resources/rain.wav" "$APP/Contents/Resources/rain.wav"
+cp Resources/rain-light.wav Resources/rain-mid.wav Resources/rain-heavy.wav "$APP/Contents/Resources/"
 
 echo "▸ 打包实景照片"
 cp Resources/photos/*.jpg "$APP/Contents/Resources/"
