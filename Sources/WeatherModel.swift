@@ -3,7 +3,7 @@ import AppKit
 
 // MARK: - WMO 天气码
 
-enum Condition: String, CaseIterable {
+enum Condition: String, CaseIterable, Codable {
     case clear
     case partlyCloudy
     case cloudy
@@ -129,7 +129,8 @@ struct SkyState {
     var stars: Double
 }
 
-struct Weather {
+/// 可编码：最近一次成功的天气会落到 UserDefaults，供开机首帧离线渲染。
+struct Weather: Codable {
     var place: Place
     var condition: Condition
     var code: Int

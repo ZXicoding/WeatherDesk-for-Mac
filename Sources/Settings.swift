@@ -125,6 +125,23 @@ final class Settings {
         }
     }
 
+    /// 最近一次成功获取的天气。开机时网络还没就绪，先用它在 0 秒内把桌面画出来，
+    /// 避免登录项抢跑造成「窗口建好了但一片黑」。只存本机 UserDefaults。
+    /// 注意：这里刻意不 post .wdSettingsChanged，否则每次刷新都会触发重建桌面窗口。
+    var cachedWeather: Weather? {
+        get {
+            guard let d = ud.data(forKey: p + "cachedWeather") else { return nil }
+            return try? JSONDecoder().decode(Weather.self, from: d)
+        }
+        set {
+            if let v = newValue, let d = try? JSONEncoder().encode(v) {
+                ud.set(d, forKey: p + "cachedWeather")
+            } else {
+                ud.removeObject(forKey: p + "cachedWeather")
+            }
+        }
+    }
+
     var launchAtLogin: Bool {
         get { read("launchAtLogin", false) }
         set { write("launchAtLogin", newValue) }

@@ -103,6 +103,13 @@ final class WeatherService: NSObject {
     private var timer: Timer?
     private var busy = false
     private var wakeObserver: NSObjectProtocol?
+    /// 请求链的代次：watchdog 判死一次请求后，让迟到的回调自动作废
+    private var generation: UInt64 = 0
+    private var watchdogWork: DispatchWorkItem?
+    private var retryWork: DispatchWorkItem?
+    private var retryDelay: TimeInterval = 5
+    /// 调试用：模拟开机时网络完全不通（不发任何请求）
+    private var simulateOffline = false
 
     func start() {
         scheduleTimer()
@@ -113,7 +120,38 @@ final class WeatherService: NSObject {
         NotificationCenter.default.addObserver(
             self, selector: #selector(scheduleTimer),
             name: .wdSettingsChanged, object: nil)
-        refresh()
+        simulateOffline = CommandLine.arguments.contains("--simulate-offline")
+
+        // ① 开机首帧：不等网络，立刻用上次成功的天气把桌面画出来。
+        //   登录项抢跑时 Wi-Fi / DNS 常常还没就绪，这是杜绝「黑洞桌面」的关键。
+        DispatchQueue.main.async { [weak self] in
+            self?.onUpdate?(.success(Self.offlineWeather()))
+        }
+
+        // ② 等 WindowServer 与网络栈稳定后再发第一次请求
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.refresh()
+        }
+    }
+
+    /// 无需网络的首帧：优先用缓存的真实天气；全新安装则按本地天文时刻生成一个合理天空。
+    static func offlineWeather() -> Weather {
+        if let cached = Settings.shared.cachedWeather { return cached }
+        let place = Settings.shared.lastPlace ?? Settings.shared.manualPlace ?? .fallback
+        let ev = Astronomy.dayEvents(place: place)
+        let now = Date()
+        return Weather(
+            place: place,
+            condition: ev.isDay ? .partlyCloudy : .clear,
+            code: ev.isDay ? 2 : 0,
+            temperature: 18, apparent: 17, humidity: 55,
+            windSpeed: 6, windDirection: 210,
+            precipitation: 0, cloudCover: 25,
+            isDay: ev.isDay,
+            sunrise: ev.sunrise, sunset: ev.sunset, nextSunrise: ev.nextSunrise,
+            observedAt: now, fetchedAt: now,
+            timeZoneName: TimeZone.current.identifier,
+            utcOffset: TimeZone.current.secondsFromGMT())
     }
 
     @objc func scheduleTimer() {
@@ -126,21 +164,68 @@ final class WeatherService: NSObject {
     }
 
     func refresh() {
+        retryWork?.cancel()
         guard !busy else { return }
         if let d = demo {
             let w = d.weather()
             DispatchQueue.main.async { [weak self] in self?.onUpdate?(.success(w)) }
             return
         }
+        if simulateOffline {
+            DispatchQueue.main.async { [weak self] in self?.onUpdate?(.failure(WeatherError.offline)) }
+            scheduleRetry()
+            return
+        }
 
         busy = true
+        generation &+= 1
+        let gen = generation
+        armWatchdog(gen)
+
         resolvePlace { [weak self] place in
             guard let self else { return }
             self.fetch(place: place) { result in
-                self.busy = false
-                DispatchQueue.main.async { self.onUpdate?(result) }
+                DispatchQueue.main.async {
+                    guard gen == self.generation else { return }   // 丢弃已被 watchdog 判死的旧请求
+                    self.busy = false
+                    self.watchdogWork?.cancel()
+                    switch result {
+                    case .success(let w):
+                        Settings.shared.cachedWeather = w          // 下次开机的首帧素材
+                        self.retryDelay = 5
+                        self.onUpdate?(.success(w))
+                    case .failure(let e):
+                        // 断网时保留上一帧画面，并快速重试，而不是干等 10 分钟
+                        self.onUpdate?(.failure(e))
+                        self.scheduleRetry()
+                    }
+                }
             }
         }
+    }
+
+    /// 定位或请求链若没回调，busy 会永久卡住后续所有刷新 —— 15 秒强制解锁并重试。
+    private func armWatchdog(_ gen: UInt64) {
+        watchdogWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, gen == self.generation, self.busy else { return }
+            self.generation &+= 1        // 让迟到的回调作废
+            self.busy = false
+            self.onUpdate?(.failure(WeatherError.offline))
+            self.scheduleRetry()
+        }
+        watchdogWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: work)
+    }
+
+    /// 失败后 5→10→20→40→60 秒指数退避，网络一恢复立刻回到实时数据。
+    private func scheduleRetry() {
+        retryWork?.cancel()
+        let delay = retryDelay
+        retryDelay = min(60, retryDelay * 2)
+        let work = DispatchWorkItem { [weak self] in self?.refresh() }
+        retryWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     // MARK: 定位

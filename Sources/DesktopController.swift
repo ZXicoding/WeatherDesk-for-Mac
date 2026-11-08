@@ -30,6 +30,18 @@ final class DesktopController {
             self?.apply(w, animated: true)
         }
         sunTimer?.tolerance = 5
+
+        // 开机自启的两道兜底：WindowServer 早期可能还没合成桌面层（窗口在、层级对，却是一片黑），
+        // 或天气数据链路整个没回调。这里保证无论如何桌面都有一帧真实画面。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            guard let self, self.lastWeather == nil else { return }
+            self.consume(.success(WeatherService.offlineWeather()))
+        }
+        for delay in [2.0, 8.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.reapply()
+            }
+        }
     }
 
     @objc private func screenParamsChanged() { rebuild() }
