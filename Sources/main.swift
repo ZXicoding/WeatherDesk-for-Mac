@@ -16,6 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let arg = CommandLine.arguments.first(where: { $0.hasPrefix("--demo=") }) {
             WeatherService.shared.demo = Demo(rawValue: String(arg.dropFirst("--demo=".count)))
         }
+        // 预览 / 自检用：--slot=14 强制显示某个 2 小时档位（00/02/…/22），不写入偏好
+        if let arg = CommandLine.arguments.first(where: { $0.hasPrefix("--slot=") }),
+           let h = Int(String(arg.dropFirst("--slot=".count))),
+           h >= 0, h < 24 {
+            Settings.forcedSlot = (h / SceneClock.slotHours) * SceneClock.slotHours
+        }
         // 预览 / 自检用：--biome=desert 强制指定生态带照片包，不写入偏好
         if let arg = CommandLine.arguments.first(where: { $0.hasPrefix("--biome=") }) {
             Settings.forcedBiomePack = String(arg.dropFirst("--biome=".count))

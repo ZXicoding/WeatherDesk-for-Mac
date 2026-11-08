@@ -51,6 +51,8 @@ final class Settings {
     static var forcedBiomePack: String?
     /// 仅由启动参数 --cam=<id> 设置，用于预览某个公开摄像头，不写入偏好
     static var forcedLiveCam: String?
+    /// 仅由启动参数 --slot=<HH> 设置，强制某个 2 小时档位用于预览，不写入偏好
+    static var forcedSlot: Int?
     /// 仅由 --live / --no-live 设置，用于截屏自检，不写入偏好
     static var debugLiveCam: Bool?
     private let ud = UserDefaults.standard

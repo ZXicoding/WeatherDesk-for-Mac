@@ -350,7 +350,8 @@ final class SkyView: NSView {
     /// 其次才是该档主图；内置没有天气覆盖时，天气交给粒子层与雾幕表达。
     private static func slotNames(for w: Weather) -> [String] {
         let tz = SceneClock.timeZone(w)
-        let base = SceneClock.name(SceneClock.slot(date: Date(), timeZone: tz))
+        let slot = Settings.forcedSlot ?? SceneClock.slot(date: Date(), timeZone: tz)
+        let base = SceneClock.name(slot)
         if let tag = weatherTag(w.condition) { return ["\(base)-\(tag)", base] }
         return [base]
     }

@@ -146,6 +146,7 @@ open "天气桌面.app" --args --demo=sunset   # clear / sunset / rain / storm /
 open "天气桌面.app" --args --live          # 临时开启实时摄像头（不写入偏好）
 open "天气桌面.app" --args --cam=<id>      # 固定某个公开摄像头
 open "天气桌面.app" --args --biome=desert  # 强制某个生态带照片包
+open "天气桌面.app" --args --slot=14       # 强制看 14:00–16:00 那一档；--slot=00 对比深夜
 ```
 
 首次切到「精确定位」时系统会询问定位权限；只用 IP 定位或手动城市则不需要任何授权。
