@@ -1,0 +1,36 @@
+天气桌面 for Mac · 内置实景照片来源与授权
+
+以下 5 张照片来自 Wikimedia Commons，为适配桌面比例做过等比裁切
+（1536×924）与 JPEG 压缩，未做其他内容修改。图片版权归原作者所有，
+按各自原始许可使用；本 App 的源代码部分不受图片许可约束。
+
+scene-clear.jpg
+  标题：DZ6 2492 Sunny day on the golf course carts lined up by the path as players enjoy a round under blue
+  作者：PattayaPatrol
+  许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  原始页面：https://commons.wikimedia.org/wiki/File:DZ6_2492_Sunny_day_on_the_golf_course_carts_lined_up_by_the_path_as_players_enjoy_a_round_under_blue_skies.jpg
+
+scene-sunset.jpg
+  标题：Open forest in silhouette at evening Blue hour Marchant Park Aspley P1080054.jpg
+  作者：John Robert McPherson
+  许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  原始页面：https://commons.wikimedia.org/wiki/File:Open_forest_in_silhouette_at_evening_Blue_hour_Marchant_Park_Aspley_P1080054.jpg
+
+scene-night.jpg
+  标题：DFC 0076 A quiet moonlit night over a suburban parking area lined with palm trees and parked cars.jp
+  作者：PattayaPatrol
+  许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  原始页面：https://commons.wikimedia.org/wiki/File:DFC_0076_A_quiet_moonlit_night_over_a_suburban_parking_area_lined_with_palm_trees_and_parked_cars.jpg
+
+scene-rain.jpg
+  标题：A Rainy Day In Park - panoramio.jpg
+  作者：Behrooz Rezvani
+  许可：CC BY 3.0  https://creativecommons.org/licenses/by/3.0
+  原始页面：https://commons.wikimedia.org/wiki/File:A_Rainy_Day_In_Park_-_panoramio.jpg
+
+scene-snow.jpg
+  标题：Snow-covered residential street at dusk, Urbana, Illinois (December 2025).jpg
+  作者：Ben1152000
+  许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
+  原始页面：https://commons.wikimedia.org/wiki/File:Snow-covered_residential_street_at_dusk,_Urbana,_Illinois_(December_2025).jpg
+

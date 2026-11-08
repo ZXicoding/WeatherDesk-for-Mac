@@ -29,6 +29,7 @@ iconutil -c icns "$BUILD/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.ic
 
 echo "▸ 打包实景照片"
 cp Resources/photos/*.jpg "$APP/Contents/Resources/"
+cp Resources/图片来源.txt "$APP/Contents/Resources/"
 
 echo "▸ 签名（优先用稳定的开发者证书，避免 ad-hoc 身份漂移）"
 IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
