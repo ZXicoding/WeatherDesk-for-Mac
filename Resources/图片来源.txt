@@ -1,56 +1,65 @@
 天气桌面 for Mac · 内置实景照片来源与授权
-（v1.3.3 起：换成天津静海所在的华北平原湿地生态景观）
+（v1.3.4 起：全部换成开阔视野构图，不再用窄水道与近景特写）
 
-这套底图是「按所在地生态挑选的本地素材」，不是每换一个 IP 就联网取当地实拍：
-5 张都选华北平原 / 海河下游湿地常见的芦苇荡、浅水湖沼、草甸、林带水道与
-冬季香蒲，其中 scene-night.jpg 是**天津静海本地实拍**（2011-11-15）。
-画面里不含建筑、道路、路灯、栅栏、车辆、人物、渔具、农田设施等人文元素，
-也不取银河、完美倒影、巨大落日、雪山金光这类风光大片。
-为保持纯自然画面，个别照片裁切时去掉了远处地平线上的电力设施。
+这套底图是「按所在地生态挑选的本地素材」，不是每换一个 IP 就联网取当地实拍。
+5 张都取平原浅湖 / 芦苇湿地 / 草甸 / 冬季冰面，构图统一为
+**低平的地平线 + 大面积天空 + 开阔水面或雪原**，不再是两排树夹一条窄水沟、
+也不再是芦苇、香蒲的近景特写。其中 scene-clear 与 scene-sunset 为华北本地，
+其余 3 张是同属北半球平原湖沼生态的荷兰 / 芬兰 / 波兰湿地，
+拍摄地逐张如实标注如下，不冒充天津照片。
+v1.3.3 那张「天津静海本地实拍」因构图是窄水道，按本版开阔视野要求撤下。
+画面里不含建筑、道路、路灯、栅栏、车辆、人物、渔具、农田设施、水印等人文元素，
+也不取银河、完美镜面倒影、巨大落日、雪山金光这类风光大片。
+为保持纯自然与开阔感，个别照片裁切时去掉了近景树枝、岸边设施与远处地平线杂物。
 照片仅做等比裁切（1536×924）与 JPEG 压缩，未做合成或生成式修改。
 
-scene-clear.jpg · 开阔的平原芦苇草甸（中国华北湿地，2012-08）
+scene-clear.jpg · 开阔的平原绿苇草甸（中国华北湿地，2012-08）
   标题：芦苇连天 - Endless Wetland of Reeds - 2012.08 - panoramio.jpg
   作者：rheins
   许可：CC BY 3.0  https://creativecommons.org/licenses/by/3.0/
   原始页面：https://commons.wikimedia.org/wiki/File:%E8%8A%A6%E8%8B%87%E8%BF%9E%E5%A4%A9_-_Endless_Wetland_of_Reeds_-_2012.08_-_panoramio.jpg
   备注：Commons 分类标注为在中国拍摄；未给出更精确的地点。
-        绿草甸、芦苇与蓝天白云是海河下游平原湿地的典型面貌。
+        绿草甸、芦苇与蓝天白云是海河下游平原湿地的典型面貌，
+        地平线压得很低，天空占画面约三分之二，本就足够开阔，故保留不改。
 
-scene-sunset.jpg · 金黄芦花与水面（中国华北湿地，2012-08）
-  标题：芦花 - Flowering Reeds - 2012.08 - panoramio.jpg
-  作者：rheins
-  许可：CC BY 3.0  https://creativecommons.org/licenses/by/3.0/
-  原始页面：https://commons.wikimedia.org/wiki/File:%E8%8A%A6%E8%8A%B1_-_Flowering_Reeds_-_2012.08_-_panoramio.jpg
-  备注：Commons 分类标注为在中国拍摄；裁切时去掉了远处地平线上的电力设施与
-        小屋，只保留芦花、水面与天空。
+scene-sunset.jpg · 暮色里的开阔大水面（**河北衡水湖**）
+  标题：Hengshui Lake, Hebei, China1.jpg
+  作者：王计
+  许可：CC BY 2.5  https://creativecommons.org/licenses/by/2.5/
+  原始页面：https://commons.wikimedia.org/wiki/File:Hengshui_Lake,_Hebei,_China1.jpg
+  备注：衡水湖是华北平原典型的浅水湖泊湿地，与海河下游同属一类生态。
+        画面为低平的远岸线、碎波水面与灰橙暮色天空，太阳很小、水面不是镜面倒影；
+        裁切时只去掉了上下多余边幅。
 
-scene-night.jpg · 雾中林带水道（**天津静海本地实拍**，2011-11-15）
-  标题：Jinghai, Tianjin, China - panoramio (20).jpg
-  作者：Matthew Summerton
+scene-night.jpg · 日落后的开阔冰湖（芬兰 Pudasjärvi，2008-03-08）
+  标题：Frozen Pudasjarvi lake 20080308.jpg
+  作者：Antti Palsola（Apalsola）
   许可：CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0/
-  原始页面：https://commons.wikimedia.org/wiki/File:Jinghai,_Tianjin,_China_-_panoramio_(20).jpg
-  备注：Commons 的图片说明与分类均明确标注「Jinghai, Tianjin, China」。
-        画面是秋冬雾里的杨树林带与浅水道，无建筑、人、车辆或设施；
-        裁切时略去部分亮白天空，让整体更沉静。
+  原始页面：https://commons.wikimedia.org/wiki/File:Frozen_Pudasjarvi_lake_20080308.jpg
+  备注：Commons 标注拍摄于芬兰 Pudasjärvi，非中国。选它作夜景是因为
+        低平远岸线 + 整片开阔水面 + 冷蓝沉静暮色，且无任何近景遮挡；
+        裁切时去掉了左侧近景的树梢。
 
-scene-rain.jpg · 阴天芦苇水面（中国华北湿地，2012-08）
-  标题：芦花 - Flowering Reeds - 2012.08 - panoramio (1).jpg
-  作者：rheins
+scene-rain.jpg · 低平芦苇线上的开阔灰水面（荷兰 Friesland）
+  标题：Goëngarijpsterpoelen (Frysk) Goaiïngarypster Puollen (d.j.b.) 21.jpg
+  作者：Dominicus Johannes Bergsma
+  许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0/
+  原始页面：https://commons.wikimedia.org/wiki/File:Go%C3%ABngarijpsterpoelen_(Frysk)_Goai%C3%AFngarypster_Puollen_(d.j.b.)_21.jpg
+  备注：Commons 标注为荷兰弗里斯兰的浅湖苇塘，非中国。
+        极低的地平线、雾灰天空与大片平静水面，叠雨丝与雾幕很清楚；
+        原图很宽，裁切时只取中间一段，未改变画面内容。
+
+scene-snow.jpg · 开阔雪原与冰面（波兰 Kozłowa Góra 水库）
+  标题：001 Zbiornik Kozłowa Góra, rzeka Brynica, Polska.jpg
+  作者：Marek Ślusarczyk（Tupungato）
   许可：CC BY 3.0  https://creativecommons.org/licenses/by/3.0/
-  原始页面：https://commons.wikimedia.org/wiki/File:%E8%8A%A6%E8%8A%B1_-_Flowering_Reeds_-_2012.08_-_panoramio_(1).jpg
-  备注：与 scene-sunset 同一组拍摄；裁切时去掉远处地平线设施，
-        只留灰调芦苇与浅水，适合叠雨丝与雾幕。
+  原始页面：https://commons.wikimedia.org/wiki/File:001_Zbiornik_Koz%C5%82owa_G%C3%B3ra,_rzeka_Brynica,_Polska.jpg
+  备注：Commons 标注为波兰，非中国。选它作雪景是因为雪坡、冰面与
+        低平远岸线一起构成很开阔的冬季视野，不是积雪枝条的近景特写；
+        裁切时去掉了左侧边缘的远处杂物。
 
-scene-snow.jpg · 雪地香蒲（湿地冬景）
-  标题：Frozen Reeds - panoramio.jpg
-  作者：Shane Smith
-  许可：CC BY-SA 3.0  https://creativecommons.org/licenses/by-sa/3.0/
-  原始页面：https://commons.wikimedia.org/wiki/File:Frozen_Reeds_-_panoramio.jpg
-  备注：Commons 未标注拍摄地；画面是无任何地域特征的湿地雪景特写，
-        与华北平原冬季的香蒲 / 枯苇一致。
-
-许可小结：CC BY 3.0 × 3、CC BY-SA 3.0 × 2，均需保留署名。
+许可小结：CC BY 3.0 × 2、CC BY 2.5 × 1、CC BY-SA 3.0 × 1、CC BY-SA 4.0 × 1，
+均需保留署名；以上署名已集中列在本文件。
 本文件已随 App 打包在 Contents/Resources/，并一并放入分发包根目录。
 图片版权归原作者所有，App 源码部分不受图片许可约束；运行时不下载、不拼接图片。
 

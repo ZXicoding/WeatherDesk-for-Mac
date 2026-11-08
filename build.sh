@@ -34,14 +34,31 @@ cp Resources/图片来源.txt "$APP/Contents/Resources/"
 echo "▸ 签名（优先用稳定的开发者证书，避免 ad-hoc 身份漂移）"
 IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
   | sed -n 's/.*"\(Apple Development:.*\)".*/\1/p' | head -1)"
+# 无图形会话时，证书签名可能一直卡在「允许访问钥匙串」授权弹窗。
+# 加 25 秒超时，超时即回退 ad-hoc，保证构建不会挂死。
+sign_with_timeout() {
+  python3 - "$1" "$2" <<'PY'
+import subprocess, sys
+try:
+    sys.exit(subprocess.run(
+        ["codesign", "--force", "--deep", "--sign", sys.argv[1], sys.argv[2]],
+        timeout=25).returncode)
+except subprocess.TimeoutExpired:
+    sys.exit(124)
+PY
+}
+SIGNED=0
 if [[ -n "$IDENTITY" ]]; then
   echo "   使用：$IDENTITY"
-  if ! codesign --force --deep --sign "$IDENTITY" "$APP"; then
-    echo "   ⚠ 开发者证书签名失败，回退 ad-hoc"
-    codesign --force --deep --sign - "$APP" || true
+  if sign_with_timeout "$IDENTITY" "$APP"; then
+    SIGNED=1
+  else
+    echo "   ⚠ 开发者证书签名失败或等待钥匙串授权超时，回退 ad-hoc"
   fi
 else
   echo "   ⚠ 未找到开发者证书，使用 ad-hoc"
+fi
+if [[ "$SIGNED" != "1" ]]; then
   codesign --force --deep --sign - "$APP" || true
 fi
 # 从 zip 解压安装包会带 com.apple.quarantine，不清除会被 Gatekeeper 判为「已损坏」
