@@ -310,8 +310,9 @@ final class SkyView: NSView {
 
     // MARK: 背景底图（当地生态 / 用户照片包 / 内置照片兜底）
 
-    /// 缓存 key 必须带「地区 + 图名」。旧版只用图名，换城市后一直返回第一次那张图，
-    /// 而且 sceneMissed 会把某个图名全局判死——这是「换 IP 不换背景」的根因。
+    /// 缓存 key 必须带「目录 + 图名」，图名里含 2 小时档位。
+    /// 旧版只用图名且夜档覆盖十几个小时，换城市不换图、深夜跟下午同图都出在这里。
+    /// 档位边界与换城市时由 DesktopController 清缓存，用户中途换照片也能生效。
     private static var photoCache: [String: CGImage] = [:]
 
     static func invalidateScenes() {
@@ -320,9 +321,13 @@ final class SkyView: NSView {
     }
 
     /// 背景优先级：
-    /// photo = 公开实时摄像头帧（开启时） > 该地点专属照片 > 生态带包 > default > 内置
+    /// photo = 公开实时摄像头帧（开启时） > 2 小时档位图 > 旧版天气/时段图
     /// eco   = 该地点专属照片包 > 现场生成的当地生态 > Bundle 内置照片兜底
     /// sky   = 不使用底图，回到纯程序化天空
+    ///
+    /// 2 小时档位图与旧图分开两轮查找：先让 12 档图跨「地点目录 / 生态包 / default / 内置」
+    /// 全部层级优先命中，再退回旧命名。这样即使用户自建目录里只有旧的 5 张，
+    /// 内置的 12 档图也不会被旧图顶掉。
     private static func sceneImage(for w: Weather, st: SkyState, size: CGSize) -> CGImage? {
         switch Settings.shared.backgroundMode {
         case .photo:
@@ -330,12 +335,9 @@ final class SkyView: NSView {
             // 抓到新帧前这里自动回退静态照片，不会出现旧地点的画面或黑屏。
             if Settings.shared.liveCamEnabled,
                let frame = LiveCamFeed.shared.currentFrame { return frame }
-            // 优先级：地点专属照片 > 当地生态带照片包 > 用户 default > 内置通用 5 张。
-            // 换 IP 后 place 变化会清缓存，生态带包立即按新经纬度 / 气候重选。
-            if let local = customPhoto(for: w, st: st, includeDefault: false) { return local }
-            if Settings.shared.autoBiome, let pack = biomePhoto(for: w, st: st) { return pack }
-            return customPhoto(for: w, st: st, includeDefault: true)
-                ?? bundlePhoto(for: w, st: st)
+            if Settings.shared.twoHourScenes,
+               let img = lookup(slotNames(for: w), w: w) { return img }
+            return lookup(legacyNames(for: w, st: st), w: w)
         case .eco:
             if let custom = customPhoto(for: w, st: st, includeDefault: false) { return custom }
             return EcoScene.image(for: w, st: st, size: size) ?? bundlePhoto(for: w, st: st)
@@ -344,18 +346,36 @@ final class SkyView: NSView {
         }
     }
 
-    private static func photoName(for w: Weather, st: SkyState) -> String {
+    /// 当前 2 小时档位的候选文件名。天气专属覆盖（rain / snow）优先，
+    /// 其次才是该档主图；内置没有天气覆盖时，天气交给粒子层与雾幕表达。
+    private static func slotNames(for w: Weather) -> [String] {
+        let tz = SceneClock.timeZone(w)
+        let base = SceneClock.name(SceneClock.slot(date: Date(), timeZone: tz))
+        if let tag = weatherTag(w.condition) { return ["\(base)-\(tag)", base] }
+        return [base]
+    }
+
+    /// 兼容旧版 5 张命名，同时作为 12 档素材缺失时的兜底链。
+    private static func legacyNames(for w: Weather, st: SkyState) -> [String] {
         switch w.condition {
         case .drizzle, .rain, .heavyRain, .thunder, .fog:
-            return "scene-rain"
+            return ["scene-rain", "scene-clear"]
         case .snow, .sleet:
-            return "scene-snow"
+            return ["scene-snow", "scene-rain", "scene-clear"]
         case .clear, .partlyCloudy, .cloudy, .overcast:
             switch st.phase {
-            case .night:       return "scene-night"
-            case .dawn, .dusk: return "scene-sunset"
-            case .day:         return "scene-clear"
+            case .night:       return ["scene-night", "scene-clear"]
+            case .dawn, .dusk: return ["scene-sunset", "scene-night", "scene-clear"]
+            case .day:         return ["scene-clear"]
             }
+        }
+    }
+
+    private static func weatherTag(_ c: Condition) -> String? {
+        switch c {
+        case .drizzle, .rain, .heavyRain, .thunder, .fog: return "rain"
+        case .snow, .sleet:                              return "snow"
+        default:                                         return nil
         }
     }
 
@@ -370,60 +390,56 @@ final class SkyView: NSView {
         return out
     }
 
-    /// 按当地生态带取一套内置实景照片。每套至少备白天 / 暮色 / 阴雨三类，
-    /// 缺的时段或天气只在**同一套内**回退，风格不会串到别的生态带。
-    private static func biomePhoto(for w: Weather, st: SkyState) -> CGImage? {
-        let pack = Settings.forcedBiomePack ?? EcoScene.biome(for: w).photoPack
-        guard EcoBiome.allPhotoPacks.contains(pack) else { return nil }
-        let name = photoName(for: w, st: st)
-        let chain: [String]
-        switch name {
-        case "scene-sunset": chain = [name, "scene-night", "scene-clear"]
-        case "scene-night":  chain = [name, "scene-clear"]
-        case "scene-snow":   chain = [name, "scene-rain", "scene-clear"]
-        case "scene-rain":   chain = [name, "scene-clear"]
-        default:             chain = [name]
+    /// 按「文件名优先级 × 目录优先级」找第一张存在的照片。
+    /// 目录顺序：该地点专属 → 生态带包（开启时）→ 用户 default → App 内置。
+    /// 每个层级内部先试完整的候选名链，所以时段图齐备时不会被旧图顶掉。
+    private static func lookup(_ names: [String], w: Weather,
+                               includeDefault: Bool = true,
+                               includeBiome: Bool = true,
+                               includeBundle: Bool = true) -> CGImage? {
+        guard !names.isEmpty else { return nil }
+        if let img = images(names, in: localFolders(w.place), root: scenesRoot) { return img }
+        if includeBiome, Settings.shared.autoBiome {
+            let pack = Settings.forcedBiomePack ?? EcoScene.biome(for: w).photoPack
+            if EcoBiome.allPhotoPacks.contains(pack),
+               let res = Bundle.main.resourceURL,
+               let img = images(names, in: ["biomes/\(pack)"], root: res) { return img }
         }
-        for n in chain {
-            let key = "biome/\(pack)/\(n)"
-            if let hit = photoCache[key] { return hit }
-            guard let url = Bundle.main.url(forResource: n, withExtension: "jpg",
-                                            subdirectory: "biomes/\(pack)"),
-                  let img = loadImage(at: url) else { continue }
-            photoCache[key] = img
-            return img
-        }
+        if includeDefault,
+           let img = images(names, in: ["default"], root: scenesRoot) { return img }
+        if includeBundle, let res = Bundle.main.resourceURL,
+           let img = images(names, in: [""], root: res) { return img }
         return nil
     }
 
-    private static func customPhoto(for w: Weather, st: SkyState,
-                                    includeDefault: Bool) -> CGImage? {
-        let name = photoName(for: w, st: st)
-        var folders = localFolders(w.place)
-        if includeDefault { folders.append("default") }
+    private static func images(_ names: [String], in folders: [String],
+                               root: URL) -> CGImage? {
         for folder in folders {
-            let key = "\(folder)/\(name)"
-            if let hit = photoCache[key] { return hit }
-            let url = scenesRoot.appendingPathComponent(folder)
-                .appendingPathComponent("\(name).jpg")
-            // 不做「未命中」缓存：用户随时可能新建目录放进照片，下次 apply 就该生效
-            if let img = loadImage(at: url) {
-                photoCache[key] = img
-                return img
+            let dir = folder.isEmpty ? root : root.appendingPathComponent(folder, isDirectory: true)
+            for name in names {
+                let key = "\(dir.path)/\(name)"
+                if let hit = photoCache[key] { return hit }
+                let url = dir.appendingPathComponent("\(name).jpg")
+                // 不做「未命中」缓存：用户随时可能往目录里放新照片，下次 apply 就该生效
+                if let img = loadImage(at: url) {
+                    photoCache[key] = img
+                    return img
+                }
             }
         }
         return nil
     }
 
+    /// eco 模式沿用旧命名：地点专属照片 > 内置兜底
+    private static func customPhoto(for w: Weather, st: SkyState,
+                                    includeDefault: Bool) -> CGImage? {
+        lookup(legacyNames(for: w, st: st), w: w, includeDefault: includeDefault,
+               includeBiome: false, includeBundle: false)
+    }
+
     private static func bundlePhoto(for w: Weather, st: SkyState) -> CGImage? {
-        let name = photoName(for: w, st: st)
-        let key = "bundle/\(name)"
-        if let hit = photoCache[key] { return hit }
-        guard let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
-              let img = loadImage(at: url)
-        else { return nil }
-        photoCache[key] = img
-        return img
+        lookup(legacyNames(for: w, st: st), w: w, includeDefault: false,
+               includeBiome: false, includeBundle: true)
     }
 
     private static var scenesRoot: URL {

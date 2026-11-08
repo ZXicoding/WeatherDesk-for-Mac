@@ -76,6 +76,7 @@ if [[ "${1:-}" == "--verify" ]]; then
     -o "$BUILD/verify" \
     Sources/Settings.swift Sources/WeatherModel.swift Sources/WeatherService.swift \
     Sources/StarCatalog.swift Sources/Astronomy.swift Sources/LiveCamCatalog.swift \
+    Sources/SceneClock.swift \
     tools/verify.swift
   "$BUILD/verify"
 fi
@@ -86,7 +87,7 @@ if [[ "${1:-}" == "--preview" ]]; then
   cp Sources/Settings.swift Sources/WeatherModel.swift \
      Sources/TextureFactory.swift Sources/SkyView.swift Sources/SkyStars.swift \
      Sources/EcoScene.swift Sources/LiveCam.swift Sources/LiveCamCatalog.swift \
-     Sources/StarCatalog.swift Sources/Astronomy.swift "$BUILD/"
+     Sources/StarCatalog.swift Sources/Astronomy.swift Sources/SceneClock.swift "$BUILD/"
   swiftc -O -swift-version 5 \
     -target arm64-apple-macos13.0 \
     "${FRAMEWORKS[@]}" \

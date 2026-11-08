@@ -111,6 +111,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         add("当地生态绘制（实验）", #selector(setBackgroundMode(_:)), bg,
             on: s.backgroundMode == .eco, tag: BackgroundMode.eco.rawValue)
         bg.addItem(.separator())
+        add("每 2 小时更换底图", #selector(toggleTwoHourScenes), bg, on: s.twoHourScenes)
+        if s.twoHourScenes {
+            let tz = lastWeather.map { SceneClock.timeZone($0) } ?? .current
+            let slot = SceneClock.slot(timeZone: tz)
+            disabled("当前档位  \(SceneClock.label(slot))", bg)
+        }
         add("按生态带自动切换背景", #selector(toggleAutoBiome), bg, on: s.autoBiome)
         submenu("背景来源", bg, menu)
 
@@ -253,6 +259,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         // 先清底图缓存，再写偏好（同步触发 rebuild），最后补一帧确保动画层重建
         SkyView.invalidateScenes()
         Settings.shared.backgroundMode = m
+        DesktopController.shared.reapply()
+    }
+
+    @objc private func toggleTwoHourScenes() {
+        SkyView.invalidateScenes()
+        Settings.shared.twoHourScenes = !Settings.shared.twoHourScenes
         DesktopController.shared.reapply()
     }
 

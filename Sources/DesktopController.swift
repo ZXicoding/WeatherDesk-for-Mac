@@ -9,6 +9,7 @@ final class DesktopController {
     private var entries: [(window: NSWindow, view: SkyView)] = []
     private var lastWeather: Weather?
     private var sunTimer: Timer?
+    private var slotTimer: Timer?
     private var levelOffset = 1
 
     func start() {
@@ -23,6 +24,10 @@ final class DesktopController {
         NotificationCenter.default.addObserver(
             self, selector: #selector(settingsChanged),
             name: .wdSettingsChanged, object: nil)
+        // 睡眠期间定时器会停：唤醒后立刻按当前当地时刻重选 2 小时档位
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(woke),
+            name: NSWorkspace.didWakeNotification, object: nil)
 
         // 两次天气刷新之间，太阳/月亮也持续移动，日落过渡是连续的
         sunTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
@@ -30,6 +35,8 @@ final class DesktopController {
             self?.apply(w, animated: true)
         }
         sunTimer?.tolerance = 5
+        // 精确的偶数整点换图：不依赖 20 秒轮询，也避免睡眠后错过边界
+        scheduleSlotTick()
 
         // 开机自启的两道兜底：WindowServer 早期可能还没合成桌面层（窗口在、层级对，却是一片黑），
         // 或天气数据链路整个没回调。这里保证无论如何桌面都有一帧真实画面。
@@ -48,6 +55,27 @@ final class DesktopController {
 
     @objc private func settingsChanged() {
         rebuild()
+        scheduleSlotTick()
+    }
+
+    @objc private func woke() {
+        SkyView.invalidateScenes()
+        reapply()
+        scheduleSlotTick()
+    }
+
+    /// 对齐到下一个「当地偶数整点」，到点清底图缓存并重绘，然后排下一次。
+    private func scheduleSlotTick() {
+        slotTimer?.invalidate()
+        let tz = lastWeather.map { SceneClock.timeZone($0) } ?? .current
+        let delay = SceneClock.secondsToNextSlot(timeZone: tz)
+        slotTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            SkyView.invalidateScenes()
+            self.reapply()
+            self.scheduleSlotTick()
+        }
+        slotTimer?.tolerance = 1
     }
 
     func reapply() {
@@ -103,12 +131,15 @@ final class DesktopController {
             // 换 IP / 切城市：清掉底图缓存，让新地点立刻重新选图。
             // 缓存 key 本身已带坐标，这里再清一次顺带释放旧图内存，
             // 也让用户中途放进 scenes 的照片无需重启就能生效。
+            let oldTZ = lastWeather?.timeZoneName
             if lastWeather?.place != w.place {
                 SkyView.invalidateScenes()
                 // 换 IP / 换城市：立刻切到新地点附近的公开摄像头，
                 // 旧地点那一帧先清掉，避免串景
                 LiveCamFeed.shared.update(place: w.place)
             }
+            // 跨时区换 IP 后，2 小时档位边界要按新的当地挂钟重新对齐
+            if oldTZ != w.timeZoneName || oldTZ == nil { scheduleSlotTick() }
             lastWeather = w
             apply(w, animated: true)
         case .failure:

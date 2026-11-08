@@ -111,6 +111,13 @@ final class Settings {
         set { write("backgroundMode", newValue.rawValue) }
     }
 
+    /// 实景底图按当地时间每 2 小时换一张（12 档）。关掉则回到旧的「天气 × 白天/暮色/夜」5 张。
+    /// 默认开启：旧的 night 档覆盖日落到日出的十几个小时，下午和深夜会是同一张图。
+    var twoHourScenes: Bool {
+        get { read("twoHourScenes", true) }
+        set { write("twoHourScenes", newValue) }
+    }
+
     /// 换 IP / 换城市时，按经纬度与当地气候推断生态带，自动切到对应的一套实景照片。
     /// 默认关闭：内置目前只提供湿地一套，其余生态带可用 `Resources/biomes/<pack>/`
     /// 自行放入同名 5 张后开启；空包会自动回退到通用静态底图。

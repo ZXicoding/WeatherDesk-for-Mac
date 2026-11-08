@@ -1,6 +1,8 @@
 import Foundation
 import AppKit
 import CoreLocation
+import CoreGraphics
+import ImageIO
 
 @main
 struct Verify {
@@ -225,11 +227,79 @@ struct Verify {
         _ = sem.wait(timeout: .now() + 15)
         ok("Open-Meteo 实时数据可解析（\(String(format: "%.1f", liveTemp))°C）", live)
 
+        print("— 2 小时档位底图")
+        let shTZ = TimeZone(identifier: "Asia/Shanghai")!
+        let lonTZ = TimeZone(identifier: "Europe/London")!
+        ok("一天切成 12 档", SceneClock.slotCount == 12 && SceneClock.allSlots.count == 12)
+        ok("上海 00:00 落在 0 档", SceneClock.slot(date: utc(2026, 11, 8, 16), timeZone: shTZ) == 0)
+        ok("上海 01:59 仍在 0 档",
+           SceneClock.slot(date: utc(2026, 11, 8, 17).addingTimeInterval(59 * 60), timeZone: shTZ) == 0)
+        ok("上海 02:00 进入 2 档", SceneClock.slot(date: utc(2026, 11, 8, 18), timeZone: shTZ) == 2)
+        ok("上海 14:00 落在 14 档", SceneClock.slot(date: utc(2026, 11, 8, 6), timeZone: shTZ) == 14)
+        ok("上海 23:59 落在 22 档",
+           SceneClock.slot(date: utc(2026, 11, 8, 15).addingTimeInterval(59 * 60), timeZone: shTZ) == 22)
+        ok("换时区后档位跟当地挂钟走",
+           SceneClock.slot(date: utc(2026, 11, 8, 12), timeZone: shTZ) == 20
+           && SceneClock.slot(date: utc(2026, 11, 8, 12), timeZone: lonTZ) == 12)
+        ok("档位文件名互不重复", Set(SceneClock.allSlots.map { SceneClock.name($0) }).count == 12)
+        ok("00:30 距下一档还有 90 分钟",
+           abs(SceneClock.secondsToNextSlot(
+               date: utc(2026, 11, 8, 16, 30), timeZone: shTZ) - 5400) < 2)
+
+        // 12 张时段图必须齐全、规格统一、内容互不相同，且深夜明显暗于午后
+        let photoRoot = URL(fileURLWithPath: "Resources/photos", isDirectory: true)
+        let slotFiles = SceneClock.allSlots.map { "\(SceneClock.name($0)).jpg" }
+        let present = slotFiles.filter {
+            FileManager.default.fileExists(atPath: photoRoot.appendingPathComponent($0).path) }
+        ok("内置 12 张时段底图齐全（\(present.count)/12）", present.count == 12)
+        ok("时段图全部为 1536×924", present.allSatisfy { f in
+            guard let data = try? Data(contentsOf: photoRoot.appendingPathComponent(f)),
+                  let rep = NSBitmapImageRep(data: data) else { return false }
+            return rep.pixelsWide == 1536 && rep.pixelsHigh == 924
+        })
+        func fnv(_ url: URL) -> UInt64? {
+            guard let d = try? Data(contentsOf: url) else { return nil }
+            var h: UInt64 = 14695981039346656037
+            for b in d { h ^= UInt64(b); h &*= 1099511628211 }
+            return h
+        }
+        let hashes = slotFiles.compactMap { fnv(photoRoot.appendingPathComponent($0)) }
+        ok("12 张时段图内容两两不同", hashes.count == 12 && Set(hashes).count == 12)
+        func luma(_ f: String) -> CGFloat? {
+            guard let d = try? Data(contentsOf: photoRoot.appendingPathComponent(f)),
+                  let src = CGImageSourceCreateWithData(d as CFData, nil),
+                  let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
+            let n = 16
+            var px = [UInt8](repeating: 0, count: n * n * 4)
+            guard let ctx = CGContext(data: &px, width: n, height: n, bitsPerComponent: 8,
+                                      bytesPerRow: n * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return nil }
+            ctx.interpolationQuality = .high
+            ctx.draw(img, in: CGRect(x: 0, y: 0, width: n, height: n))
+            var sum: CGFloat = 0
+            for i in stride(from: 0, to: px.count, by: 4) {
+                sum += CGFloat(px[i]) * 0.299 + CGFloat(px[i + 1]) * 0.587 + CGFloat(px[i + 2]) * 0.114
+            }
+            return sum / CGFloat(n * n * 255)
+        }
+        if let nightL = luma("scene-h00.jpg"), let dayL = luma("scene-h14.jpg") {
+            ok(String(format: "深夜明显暗于午后（%.2f < %.2f）", nightL, dayL),
+               nightL < dayL * 0.72)
+        } else {
+            ok("深夜明显暗于午后", false)
+        }
+
         print("— 生态带实景照片包")
         let packs = ["wetland", "temperate", "subtropical", "grassland",
                      "desert", "conifer", "tundra", "tropical"]
-        let legal = Set(["scene-clear", "scene-sunset", "scene-night",
+        var legal = Set(["scene-clear", "scene-sunset", "scene-night",
                          "scene-rain", "scene-snow"])
+        for s in SceneClock.allSlots {
+            legal.insert(SceneClock.name(s))
+            legal.insert("\(SceneClock.name(s))-rain")
+            legal.insert("\(SceneClock.name(s))-snow")
+        }
         let fm = FileManager.default
         let packRoot = URL(fileURLWithPath: "Resources/biomes", isDirectory: true)
         // 生态带照片包是可选扩展：只校验已经提供素材的包，空包不判失败。
