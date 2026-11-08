@@ -8,7 +8,7 @@ APP="$ROOT/天气桌面.app"
 BUILD="$(mktemp -d /tmp/weatherdesk-build.XXXXXX)"
 trap 'rm -rf "$BUILD"' EXIT
 
-FRAMEWORKS=(-framework AppKit -framework CoreLocation -framework ServiceManagement -framework QuartzCore -framework CoreGraphics)
+FRAMEWORKS=(-framework AppKit -framework CoreLocation -framework ServiceManagement -framework QuartzCore -framework CoreGraphics -framework Network)
 
 echo "▸ 编译 Swift 源码"
 rm -rf "$APP"
@@ -63,6 +63,7 @@ if [[ "${1:-}" == "--preview" ]]; then
   cp tools/preview.swift "$BUILD/main.swift"
   cp Sources/Settings.swift Sources/WeatherModel.swift \
      Sources/TextureFactory.swift Sources/SkyView.swift Sources/SkyStars.swift \
+     Sources/EcoScene.swift \
      Sources/StarCatalog.swift Sources/Astronomy.swift "$BUILD/"
   swiftc -O -swift-version 5 \
     -target arm64-apple-macos13.0 \

@@ -104,6 +104,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         add("显示天气角标", #selector(toggleInfo), menu, on: s.showInfo)
         add("显示星座连线与星名", #selector(toggleStarLabels), menu, on: s.showConstellations)
         add("实景模式（真实照片底图）", #selector(toggleRealScene), menu, on: s.realSceneEnabled)
+        add("当地生态背景（随 IP 变化）", #selector(toggleEcoBackground), menu, on: s.backgroundMode == .eco)
         menu.addItem(.separator())
 
         let intensity = NSMenu()
@@ -207,6 +208,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleRealScene() {
         Settings.shared.realSceneEnabled = !Settings.shared.realSceneEnabled
+    }
+
+    @objc private func toggleEcoBackground() {
+        Settings.shared.backgroundMode = Settings.shared.backgroundMode == .eco ? .photo : .eco
+        SkyView.invalidateScenes()
+        DesktopController.shared.reapply()
     }
 
     @objc private func setIntensity(_ sender: NSMenuItem) {

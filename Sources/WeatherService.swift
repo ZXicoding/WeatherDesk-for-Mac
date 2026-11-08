@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import CoreLocation
+import Network
 
 enum WeatherError: LocalizedError {
     case offline
@@ -110,6 +111,8 @@ final class WeatherService: NSObject {
     private var retryDelay: TimeInterval = 5
     /// 调试用：模拟开机时网络完全不通（不发任何请求）
     private var simulateOffline = false
+    /// 网络切换监听：换 Wi-Fi / 开 VPN 时立即重新定位
+    private var pathMonitor: NWPathMonitor?
 
     func start() {
         scheduleTimer()
@@ -131,6 +134,20 @@ final class WeatherService: NSObject {
         // ② 等 WindowServer 与网络栈稳定后再发第一次请求
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             self?.refresh()
+        }
+
+        // ③ 网络切换（换 Wi-Fi / 开 VPN / 换出口 IP）时立即重新定位，
+        //    不必等下一次轮询，当地生态背景能跟着新地点马上换。
+        if !simulateOffline {
+            let monitor = NWPathMonitor()
+            monitor.pathUpdateHandler = { [weak self] path in
+                guard path.status == .satisfied else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                    self?.refresh()
+                }
+            }
+            monitor.start(queue: DispatchQueue.global(qos: .utility))
+            pathMonitor = monitor
         }
     }
 

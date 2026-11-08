@@ -5,6 +5,12 @@ extension Notification.Name {
     static let wdSettingsChanged = Notification.Name("com.xi.weatherdesk.settingsChanged")
 }
 
+/// 背景来源：默认按 IP 现场生成当地自然生态；也可切回实景照片
+enum BackgroundMode: String {
+    case eco
+    case photo
+}
+
 enum LocationMode: String {
     case autoIP
     case precise
@@ -85,6 +91,12 @@ final class Settings {
     var realSceneEnabled: Bool {
         get { read("realSceneEnabled", true) }
         set { write("realSceneEnabled", newValue) }
+    }
+
+    /// 背景来源：默认按 IP 现场生成当地自然生态；也可切回实景照片
+    var backgroundMode: BackgroundMode {
+        get { BackgroundMode(rawValue: read("backgroundMode", "eco")) ?? .eco }
+        set { write("backgroundMode", newValue.rawValue) }
     }
 
     var refreshMinutes: Int {

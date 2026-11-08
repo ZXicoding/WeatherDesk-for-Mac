@@ -216,7 +216,7 @@ final class SkyView: NSView {
                       pal.bottom.cgColor]
         // 实景模式（方案一）：真实照片做底，云 / 雨 / 雪 / 闪电继续叠加；
         // 程序化天空渐变、日月与星图让位。找不到照片素材时自动回退。
-        let scene = Settings.shared.realSceneEnabled ? Self.sceneImage(for: w, st: st) : nil
+        let scene = Settings.shared.realSceneEnabled ? Self.sceneImage(for: w, st: st, size: bounds.size) : nil
         let cloudVeil = pow(max(0, 1 - Double(w.cloudCover) / 100), 1.15)
         // 实时数据下星点可见度直接由真实的暮光暗度驱动，太阳落山即亮起
         let night = w.simulated ? st.stars : frame.darkness
@@ -276,54 +276,83 @@ final class SkyView: NSView {
         min(12, w.condition.cloudBase + Int(Double(w.cloudCover) / 20.0))
     }
 
-    // MARK: 实景模式（方案一：真实照片底图 + 动画层叠加）
+    // MARK: 背景底图（当地生态 / 用户照片包 / 内置照片兜底）
 
-    private static var sceneCache: [String: CGImage] = [:]
-    private static var sceneMissed: Set<String> = []
+    /// 缓存 key 必须带「地区 + 图名」。旧版只用图名，换城市后一直返回第一次那张图，
+    /// 而且 sceneMissed 会把某个图名全局判死——这是「换 IP 不换背景」的根因。
+    private static var photoCache: [String: CGImage] = [:]
 
-    /// 按「天气 × 相位」挑实景照片。
-    /// 优先所在地实景包：`~/Library/Application Support/天气桌面/scenes/<地区>/scene-*.jpg`
-    /// （地区目录依次尝试「区域-城市 / 城市 / default」），没有匹配再回退 Bundle 内置图；
-    /// 都找不到时返回 nil（回退程序化天空）。
-    private static func sceneImage(for w: Weather, st: SkyState) -> CGImage? {
-        let name: String
+    static func invalidateScenes() {
+        photoCache.removeAll()
+        EcoScene.invalidate()
+    }
+
+    /// 背景优先级：
+    /// 生态模式 = 该地点专属照片包 > 现场生成的当地生态 > Bundle 内置照片兜底
+    /// 照片模式 = 该地点专属照片包 > default 照片包 > Bundle 内置照片
+    private static func sceneImage(for w: Weather, st: SkyState, size: CGSize) -> CGImage? {
+        switch Settings.shared.backgroundMode {
+        case .eco:
+            if let custom = customPhoto(for: w, st: st, includeDefault: false) { return custom }
+            return EcoScene.image(for: w, st: st, size: size) ?? bundlePhoto(for: w, st: st)
+        case .photo:
+            return customPhoto(for: w, st: st, includeDefault: true) ?? bundlePhoto(for: w, st: st)
+        }
+    }
+
+    private static func photoName(for w: Weather, st: SkyState) -> String {
         switch w.condition {
         case .drizzle, .rain, .heavyRain, .thunder, .fog:
-            name = "scene-rain"
+            return "scene-rain"
         case .snow, .sleet:
-            name = "scene-snow"
+            return "scene-snow"
         case .clear, .partlyCloudy, .cloudy, .overcast:
             switch st.phase {
-            case .night:       name = "scene-night"
-            case .dawn, .dusk: name = "scene-sunset"
-            case .day:         name = "scene-clear"
+            case .night:       return "scene-night"
+            case .dawn, .dusk: return "scene-sunset"
+            case .day:         return "scene-clear"
             }
         }
-        if let hit = sceneCache[name] { return hit }
-        guard !sceneMissed.contains(name) else { return nil }
+    }
 
-        // 1) 所在地实景包
-        let fm = FileManager.default
-        let folderNames = [sanitized("\(w.place.region)-\(w.place.name)"),
-                           sanitized(w.place.name),
-                           "default"]
-        for folder in folderNames {
+    /// 精确匹配当前地点的目录别名（不含 default —— 它是通用兜底，
+    /// 若把它也算「地点专属」，生态模式会被通用照片永久顶掉）
+    private static func localFolders(_ p: Place) -> [String] {
+        var out: [String] = []
+        for s in ["\(p.region)-\(p.name)", p.name, p.region] {
+            let t = sanitized(s)
+            if !t.isEmpty, !out.contains(t) { out.append(t) }
+        }
+        return out
+    }
+
+    private static func customPhoto(for w: Weather, st: SkyState,
+                                    includeDefault: Bool) -> CGImage? {
+        let name = photoName(for: w, st: st)
+        var folders = localFolders(w.place)
+        if includeDefault { folders.append("default") }
+        for folder in folders {
+            let key = "\(folder)/\(name)"
+            if let hit = photoCache[key] { return hit }
             let url = scenesRoot.appendingPathComponent(folder)
                 .appendingPathComponent("\(name).jpg")
+            // 不做「未命中」缓存：用户随时可能新建目录放进照片，下次 apply 就该生效
             if let img = loadImage(at: url) {
-                sceneCache[name] = img
+                photoCache[key] = img
                 return img
             }
         }
+        return nil
+    }
 
-        // 2) Bundle 内置
+    private static func bundlePhoto(for w: Weather, st: SkyState) -> CGImage? {
+        let name = photoName(for: w, st: st)
+        let key = "bundle/\(name)"
+        if let hit = photoCache[key] { return hit }
         guard let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
               let img = loadImage(at: url)
-        else {
-            sceneMissed.insert(name)
-            return nil
-        }
-        sceneCache[name] = img
+        else { return nil }
+        photoCache[key] = img
         return img
     }
 
@@ -1014,7 +1043,9 @@ final class SkyView: NSView {
             line(names.isEmpty ? "今夜云层较厚，星星被遮住了" : "今夜可见：\(names) 等", 24,
                  .systemFont(ofSize: 10, weight: .medium), 0.78)
             var tail = (Settings.shared.realSceneEnabled && !sceneLayer.isHidden)
-                ? "实景模式 · 月相 \(Int(frame.moonIllumination * 100))%"
+                ? (Settings.shared.backgroundMode == .eco
+                   ? "当地生态 · \(EcoScene.biome(for: w).label) · 月相 \(Int(frame.moonIllumination * 100))%"
+                   : "实景模式 · 月相 \(Int(frame.moonIllumination * 100))%")
                 : "真实星图 \(starCount) 颗 · 月相 \(Int(frame.moonIllumination * 100))%"
             if let mr = Astronomy.dayEvents(date: Date(), place: w.place).moonrise {
                 tail += " · 月升 \(hhmm(mr))"

@@ -100,6 +100,12 @@ final class DesktopController {
     func consume(_ result: Result<Weather, Error>) {
         switch result {
         case .success(let w):
+            // 换 IP / 切城市：清掉底图缓存，让新地点立刻重新选图。
+            // 缓存 key 本身已带坐标，这里再清一次顺带释放旧图内存，
+            // 也让用户中途放进 scenes 的照片无需重启就能生效。
+            if lastWeather?.place != w.place {
+                SkyView.invalidateScenes()
+            }
             lastWeather = w
             apply(w, animated: true)
         case .failure:
