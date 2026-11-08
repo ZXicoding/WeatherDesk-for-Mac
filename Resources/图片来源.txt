@@ -1,36 +1,46 @@
 天气桌面 for Mac · 内置实景照片来源与授权
+（v1.3.2 起：全部换成不含人文内容的简单自然景观）
 
-以下 5 张照片来自 Wikimedia Commons，为适配桌面比例做过等比裁切
-（1536×924）与 JPEG 压缩，未做其他内容修改。图片版权归原作者所有，
-按各自原始许可使用；本 App 的源代码部分不受图片许可约束。
+以下 5 张照片来自 Wikimedia Commons 的真实摄影作品，为适配桌面比例做过
+等比裁切（1536×924）与 JPEG 压缩，未做其他内容修改、未叠加任何合成或
+生成式处理。选取标准是「简单的自然景观」：画面里只有树林、草地、天空、
+雾与雪，不含建筑、道路、路灯、车辆、人物、栅栏、农田设施等人文元素，
+也不取银河星空、完美镜面倒影、巨大落日、雪山金光这类风光大片。
 
-scene-clear.jpg
-  标题：DZ6 2492 Sunny day on the golf course carts lined up by the path as players enjoy a round under blue
-  作者：PattayaPatrol
+图片版权归原作者所有，按各自原始许可使用；本 App 的源代码部分不受图片
+许可约束。运行时不联网下载、不拼接任何图片。
+
+scene-clear.jpg · 白桦林（晴天）
+  标题：Bünauburg Hoher Schneeberg lub 2024-07-20 img03 Birkenwald.jpg
+  作者：Lukas Beck
+  许可：CC BY 4.0  https://creativecommons.org/licenses/by/4.0
+  原始页面：https://commons.wikimedia.org/wiki/File:B%C3%BCnauburg_Hoher_Schneeberg_lub_2024-07-20_img03_Birkenwald.jpg
+
+scene-sunset.jpg · 草地落叶树与淡霞（傍晚）
+  标题：Schwaigern - Massenbach - Baumgruppe am Wilhelmstaler Bach bei Sonnenuntergang (1).jpg
+  作者：Roman Eisele
   许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
-  原始页面：https://commons.wikimedia.org/wiki/File:DZ6_2492_Sunny_day_on_the_golf_course_carts_lined_up_by_the_path_as_players_enjoy_a_round_under_blue_skies.jpg
+  原始页面：https://commons.wikimedia.org/wiki/File:Schwaigern_-_Massenbach_-_Baumgruppe_am_Wilhelmstaler_Bach_bei_Sonnenuntergang_(1).jpg
+  备注：为保持纯自然画面，裁切时去掉了原图下方的翻耕农田。
 
-scene-sunset.jpg
-  标题：Open forest in silhouette at evening Blue hour Marchant Park Aspley P1080054.jpg
-  作者：John Robert McPherson
-  许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
-  原始页面：https://commons.wikimedia.org/wiki/File:Open_forest_in_silhouette_at_evening_Blue_hour_Marchant_Park_Aspley_P1080054.jpg
+scene-night.jpg · 暮色林缘（夜间）
+  标题：DeepInTheForest cre8art4life JulieGeiger.jpg
+  作者：Julie Geiger
+  许可：CC0 1.0  https://creativecommons.org/publicdomain/zero/1.0
+  原始页面：https://commons.wikimedia.org/wiki/File:DeepInTheForest_cre8art4life_JulieGeiger.jpg
 
-scene-night.jpg
-  标题：DFC 0076 A quiet moonlit night over a suburban parking area lined with palm trees and parked cars.jp
-  作者：PattayaPatrol
-  许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
-  原始页面：https://commons.wikimedia.org/wiki/File:DFC_0076_A_quiet_moonlit_night_over_a_suburban_parking_area_lined_with_palm_trees_and_parked_cars.jpg
+scene-rain.jpg · 雾中高树林（雨 / 雾）
+  标题：Sri Lanka cloud forest, tall trees in fog.jpg
+  作者：Vyacheslav Argenberg
+  许可：CC BY 4.0  https://creativecommons.org/licenses/by/4.0
+  原始页面：https://commons.wikimedia.org/wiki/File:Sri_Lanka_cloud_forest,_tall_trees_in_fog.jpg
 
-scene-rain.jpg
-  标题：A Rainy Day In Park - panoramio.jpg
-  作者：Behrooz Rezvani
-  许可：CC BY 3.0  https://creativecommons.org/licenses/by/3.0
-  原始页面：https://commons.wikimedia.org/wiki/File:A_Rainy_Day_In_Park_-_panoramio.jpg
+scene-snow.jpg · 覆雪松林（雪）
+  标题：Pine trees covered in snow.jpg
+  作者：Dreamy Pixel
+  许可：CC BY 4.0  https://creativecommons.org/licenses/by/4.0
+  原始页面：https://commons.wikimedia.org/wiki/File:Pine_trees_covered_in_snow.jpg
 
-scene-snow.jpg
-  标题：Snow-covered residential street at dusk, Urbana, Illinois (December 2025).jpg
-  作者：Ben1152000
-  许可：CC BY-SA 4.0  https://creativecommons.org/licenses/by-sa/4.0
-  原始页面：https://commons.wikimedia.org/wiki/File:Snow-covered_residential_street_at_dusk,_Urbana,_Illinois_(December_2025).jpg
-
+许可小结：CC BY 4.0 × 3、CC BY-SA 4.0 × 1、CC0 × 1。
+除 CC0 一张外均需保留上述署名；本文件已随 App 打包在 Contents/Resources/，
+并一并放入分发包根目录。
