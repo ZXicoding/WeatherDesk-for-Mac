@@ -61,7 +61,36 @@ scene-snow.jpg · 开阔雪原与冰面（波兰 Kozłowa Góra 水库）
 许可小结：CC BY 3.0 × 2、CC BY 2.5 × 1、CC BY-SA 3.0 × 1、CC BY-SA 4.0 × 1，
 均需保留署名；以上署名已集中列在本文件。
 本文件已随 App 打包在 Contents/Resources/，并一并放入分发包根目录。
-图片版权归原作者所有，App 源码部分不受图片许可约束；运行时不下载、不拼接图片。
+图片版权归原作者所有，App 源码部分不受图片许可约束；静态底图运行时不下载、不拼接图片。
 
 想让某个城市显示当地自己的实拍，把同名 5 张图放进
 ~/Library/Application Support/天气桌面/scenes/<城市名>/ 即可（见 README）。
+
+────────────────────────────────────────────────────────────
+实时摄像头来源（v1.4.0，可选功能，不是静态照片素材）
+────────────────────────────────────────────────────────────
+
+开启菜单栏「实时摄像头」后，App 会按当前定位坐标，从内置索引里挑最近的
+公开摄像头，向其公开帧接口请求一张 JPEG 实时画面作为底图。索引固化在
+Sources/LiveCamCatalog.swift，共 689 个带经纬度与名称的机位。
+
+索引来源：opencam.live 的公开地区页（抓取日期 2026-11-08）
+  站点：https://opencam.live/
+  帧接口：https://opencam.live/api/cctv/frame/<摄像头ID>?size=full
+  说明：该站聚合道路、气象、景区等运营方自行公开的摄像头，站点声明
+        「无需注册、不留存画面、只转发实时帧」。索引只保存摄像头 ID、
+        名称与公开坐标，不保存任何画面；画面版权归各摄像头运营方。
+        App 只在本机显示，不录像、不缓存历史帧（仅保留最近一帧用于
+        开机首帧），不二次分发。关闭开关后不发出任何取帧请求。
+
+尝试过但未采用的来源（本机实测，记录在此以免日后重复踩坑）：
+  · 央视网「直播中国」 https://livechina.cctv.com/
+    风景慢直播 HLS 位于 gcalic.v.myalicdn.com，CDN 返回
+    「denied by IP ACL = not in whitelist」；同体系
+    gctxyc.liveplay.myqcloud.com 只返回 master playlist，媒体分片超时。
+  · EarthCam https://www.earthcam.com/
+    官方 FAQ 明确「未经许可不得转播直播流」「App / 网站内嵌需另行授权」，
+    且本机连 videos-3.earthcam.com 超时。因授权边界未使用。
+  · Port of Cams https://portofcams.com/
+    页面主要嵌入 YouTube Live，国内网络不可达，且站点有付费层。
+

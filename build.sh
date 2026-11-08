@@ -27,9 +27,12 @@ swiftc -O -swift-version 5 -parse-as-library -o "$BUILD/iconmaker" tools/IconMak
 "$BUILD/iconmaker" "$BUILD/AppIcon.iconset"
 iconutil -c icns "$BUILD/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
 
-echo "▸ 打包实景照片"
+echo "▸ 打包实景照片与生态带照片包"
 cp Resources/photos/*.jpg "$APP/Contents/Resources/"
 cp Resources/图片来源.txt "$APP/Contents/Resources/"
+rm -rf "$APP/Contents/Resources/biomes"
+cp -R Resources/biomes "$APP/Contents/Resources/"
+echo "   $(find Resources/biomes -name '*.jpg' | wc -l | tr -d ' ') 张生态带照片"
 
 echo "▸ 签名（优先用稳定的开发者证书，避免 ad-hoc 身份漂移）"
 IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
@@ -72,7 +75,8 @@ if [[ "${1:-}" == "--verify" ]]; then
     "${FRAMEWORKS[@]}" \
     -o "$BUILD/verify" \
     Sources/Settings.swift Sources/WeatherModel.swift Sources/WeatherService.swift \
-    Sources/StarCatalog.swift Sources/Astronomy.swift tools/verify.swift
+    Sources/StarCatalog.swift Sources/Astronomy.swift Sources/LiveCamCatalog.swift \
+    tools/verify.swift
   "$BUILD/verify"
 fi
 
@@ -81,7 +85,7 @@ if [[ "${1:-}" == "--preview" ]]; then
   cp tools/preview.swift "$BUILD/main.swift"
   cp Sources/Settings.swift Sources/WeatherModel.swift \
      Sources/TextureFactory.swift Sources/SkyView.swift Sources/SkyStars.swift \
-     Sources/EcoScene.swift \
+     Sources/EcoScene.swift Sources/LiveCam.swift Sources/LiveCamCatalog.swift \
      Sources/StarCatalog.swift Sources/Astronomy.swift "$BUILD/"
   swiftc -O -swift-version 5 \
     -target arm64-apple-macos13.0 \

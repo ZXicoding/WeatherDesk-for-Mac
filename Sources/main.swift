@@ -16,6 +16,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let arg = CommandLine.arguments.first(where: { $0.hasPrefix("--demo=") }) {
             WeatherService.shared.demo = Demo(rawValue: String(arg.dropFirst("--demo=".count)))
         }
+        // 预览 / 自检用：--biome=desert 强制指定生态带照片包，不写入偏好
+        if let arg = CommandLine.arguments.first(where: { $0.hasPrefix("--biome=") }) {
+            Settings.forcedBiomePack = String(arg.dropFirst("--biome=".count))
+        }
+        // 预览 / 自检用：--cam=<id> 固定某个公开摄像头，--live / --no-live 临时开关。
+        // 全部只影响本次进程，不改用户偏好。
+        if let arg = CommandLine.arguments.first(where: { $0.hasPrefix("--cam=") }) {
+            Settings.forcedLiveCam = String(arg.dropFirst("--cam=".count))
+            Settings.debugLiveCam = true
+        }
+        if CommandLine.arguments.contains("--live") { Settings.debugLiveCam = true }
+        if CommandLine.arguments.contains("--no-live") { Settings.debugLiveCam = false }
 
         DesktopController.shared.start()
 

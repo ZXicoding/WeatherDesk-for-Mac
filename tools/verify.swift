@@ -225,6 +225,57 @@ struct Verify {
         _ = sem.wait(timeout: .now() + 15)
         ok("Open-Meteo 实时数据可解析（\(String(format: "%.1f", liveTemp))°C）", live)
 
+        print("— 生态带实景照片包")
+        let packs = ["wetland", "temperate", "subtropical", "grassland",
+                     "desert", "conifer", "tundra", "tropical"]
+        let legal = Set(["scene-clear", "scene-sunset", "scene-night",
+                         "scene-rain", "scene-snow"])
+        let fm = FileManager.default
+        let packRoot = URL(fileURLWithPath: "Resources/biomes", isDirectory: true)
+        // 生态带照片包是可选扩展：只校验已经提供素材的包，空包不判失败。
+        let provided = packs.filter { p in
+            let dir = packRoot.appendingPathComponent(p)
+            return !(((try? fm.contentsOfDirectory(atPath: dir.path)) ?? [])
+                .filter { $0.hasSuffix(".jpg") }.isEmpty)
+        }
+        ok("至少 1 套生态带照片包可用（已提供 \(provided.count) 套）", !provided.isEmpty)
+        for p in provided {
+            let dir = packRoot.appendingPathComponent(p)
+            let files = ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? [])
+                .filter { $0.hasSuffix(".jpg") }
+            ok("\(p) 包至少 3 张照片", files.count >= 3)
+            ok("\(p) 有白天底图", files.contains("scene-clear.jpg"))
+            ok("\(p) 文件名合法", !files.isEmpty && files.allSatisfy {
+                legal.contains(($0 as NSString).deletingPathExtension)
+            })
+            ok("\(p) 全部裁成 1536×924", !files.isEmpty && files.allSatisfy { f in
+                guard let data = try? Data(contentsOf: URL(fileURLWithPath: dir.path + "/" + f)),
+                      let rep = NSBitmapImageRep(data: data)
+                else { return false }
+                return rep.pixelsWide == 1536 && rep.pixelsHigh == 924
+            })
+        }
+
+        print("— 公开实时摄像头索引")
+        let all = LiveCamCatalog.all
+        ok("摄像头索引非空（\(all.count) 个）", all.count >= 100)
+        ok("ID 唯一且不为空", Set(all.map { $0.id }).count == all.count
+           && all.allSatisfy { !$0.id.isEmpty })
+        ok("坐标合法", all.allSatisfy {
+            (-90...90).contains($0.latitude) && (-180...180).contains($0.longitude) })
+        ok("帧地址指向 opencam.live 公开接口", all.allSatisfy {
+            $0.frameURL?.host == "opencam.live"
+            && ($0.frameURL?.path ?? "").hasPrefix("/api/cctv/frame/") })
+        let jh = Place(name: "静海区", region: "中国", latitude: 38.9, longitude: 116.8)
+        ok("天津附近能选到摄像头", LiveCamCatalog.candidates(for: jh, limit: 5).count == 5)
+        let tokyo = Place(name: "东京", region: "日本", latitude: 35.68, longitude: 139.69)
+        let zurich = Place(name: "苏黎世", region: "瑞士", latitude: 47.37, longitude: 8.54)
+        let ids = [jh, tokyo, zurich].compactMap { LiveCamCatalog.candidates(for: $0, limit: 1).first?.id }
+        ok("不同城市选到不同摄像头（换 IP 会换背景）", ids.count == 3 && Set(ids).count == 3)
+        let d = LiveCamCatalog.km(39.9042, 116.4074, 39.1234, 117.2)
+        ok("大圆距离计算正确（北京→天津 ≈ 113km）", d > 100 && d < 130)
+        ok("固定 ID 可查回", LiveCamCatalog.byID(all[0].id)?.id == all[0].id)
+
         print("——————————————")
         print("通过 \(passed) 项，失败 \(failed) 项")
         exit(failed == 0 ? 0 : 1)

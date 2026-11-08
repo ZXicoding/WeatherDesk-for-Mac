@@ -60,6 +60,25 @@ enum EcoBiome: String {
         case .savanna:     return "热带稀树草原"
         }
     }
+
+    /// 12 类生态带映射到 8 套内置实景照片包。同类生态共用一套，
+    /// 让任何城市换 IP 后都能落到「当地自然生态」的底图，无需逐城配图。
+    var photoPack: String {
+        switch self {
+        case .wetland, .coastal:             return "wetland"
+        case .temperate:                     return "temperate"
+        case .subtropical:                   return "subtropical"
+        case .grassland, .steppe, .savanna:  return "grassland"
+        case .desert:                        return "desert"
+        case .conifer:                       return "conifer"
+        case .tundra, .alpine:               return "tundra"
+        case .rainforest:                    return "tropical"
+        }
+    }
+
+    /// 8 套照片包目录名，自检与打包共用
+    static let allPhotoPacks = ["wetland", "temperate", "subtropical", "grassland",
+                                "desert", "conifer", "tundra", "tropical"]
 }
 
 private func ecoBiome(_ w: Weather) -> EcoBiome {

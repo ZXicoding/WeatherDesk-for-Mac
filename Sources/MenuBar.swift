@@ -110,7 +110,42 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             on: s.backgroundMode == .sky, tag: BackgroundMode.sky.rawValue)
         add("当地生态绘制（实验）", #selector(setBackgroundMode(_:)), bg,
             on: s.backgroundMode == .eco, tag: BackgroundMode.eco.rawValue)
+        bg.addItem(.separator())
+        add("按生态带自动切换背景", #selector(toggleAutoBiome), bg, on: s.autoBiome)
         submenu("背景来源", bg, menu)
+
+        // 公开实时摄像头：默认关闭，开启后用附近摄像头的最新一帧替换静态底图
+        let live = NSMenu()
+        add("启用公开实时摄像头", #selector(toggleLiveCam), live, on: s.liveCamEnabled)
+        live.addItem(.separator())
+        disabled(LiveCamFeed.shared.status, live)
+        if let u = LiveCamFeed.shared.lastUpdated {
+            let df = DateFormatter(); df.dateFormat = "HH:mm:ss"
+            disabled("最近一帧  \(df.string(from: u))", live)
+        }
+        live.addItem(.separator())
+        let camPlace = lastWeather?.place ?? s.lastPlace ?? Place.fallback
+        add("自动选最近（\(camPlace.display)）", #selector(pinLiveCam(_:)), live,
+            on: s.liveCamID == nil, tag: "")
+        for c in LiveCamCatalog.candidates(for: camPlace, limit: 8) {
+            let km = Int(LiveCamCatalog.km(camPlace.latitude, camPlace.longitude,
+                                           c.latitude, c.longitude))
+            add("\(c.display)  ·  \(km) km", #selector(pinLiveCam(_:)), live,
+                on: s.liveCamID == c.id, tag: c.id)
+        }
+        live.addItem(.separator())
+        let intv = NSMenu()
+        for sec in [15, 20, 30, 60, 120] {
+            add(sec < 60 ? "每 \(sec) 秒" : "每 \(sec / 60) 分钟",
+                #selector(setLiveInterval(_:)), intv,
+                on: s.liveCamInterval == sec, tag: Double(sec))
+        }
+        submenu("抓帧间隔", intv, live)
+        add("立即抓一帧", #selector(refreshLiveCam), live)
+        live.addItem(.separator())
+        disabled("画面来自公开摄像头，可能带站点水印 / 时间戳", live)
+        disabled("取不到画面时自动回退到静态背景", live)
+        submenu("实时摄像头", live, menu)
         menu.addItem(.separator())
 
         let intensity = NSMenu()
@@ -221,6 +256,37 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         DesktopController.shared.reapply()
     }
 
+    @objc private func toggleAutoBiome() {
+        SkyView.invalidateScenes()
+        Settings.shared.autoBiome = !Settings.shared.autoBiome
+        DesktopController.shared.reapply()
+    }
+
+    @objc private func toggleLiveCam() {
+        let on = !Settings.shared.liveCamEnabled
+        Settings.shared.liveCamEnabled = on
+        LiveCamFeed.shared.setEnabled(on)
+        DesktopController.shared.reapply()
+    }
+
+    @objc private func pinLiveCam(_ sender: NSMenuItem) {
+        let raw = sender.representedObject as? String ?? ""
+        let id: String? = raw.isEmpty ? nil : raw
+        Settings.shared.liveCamID = id
+        LiveCamFeed.shared.pin(id)
+        DesktopController.shared.reapply()
+    }
+
+    @objc private func setLiveInterval(_ sender: NSMenuItem) {
+        guard let v = sender.representedObject as? Double else { return }
+        Settings.shared.liveCamInterval = Int(v)
+        LiveCamFeed.shared.setInterval(Int(v))
+    }
+
+    @objc private func refreshLiveCam() {
+        LiveCamFeed.shared.refreshNow()
+    }
+
     @objc private func setIntensity(_ sender: NSMenuItem) {
         guard let v = sender.representedObject as? Double else { return }
         Settings.shared.intensity = v
@@ -299,6 +365,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         a.informativeText =
             "把当地实时天气画到桌面上：下雨就有雨、下雪就飘雪、日落就是晚霞。\n\n" +
             "· 天气数据：Open-Meteo（免费、无需 API Key）\n" +
+            "· 实时摄像头（可选）：opencam.live 公开摄像头实时帧，取不到自动回退静态背景\n" +
             "· 定位：IP 自动定位 / 系统精确定位 / 手动城市\n" +
             "· 太阳 / 月亮 / 日出日落 / 月升月落由本机实时推算，天气每 5~30 分钟同步\n" +
             "· 纯 Swift + AppKit，不联网上传任何数据\n\n" +

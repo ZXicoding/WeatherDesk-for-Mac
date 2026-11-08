@@ -105,6 +105,9 @@ final class DesktopController {
             // 也让用户中途放进 scenes 的照片无需重启就能生效。
             if lastWeather?.place != w.place {
                 SkyView.invalidateScenes()
+                // 换 IP / 换城市：立刻切到新地点附近的公开摄像头，
+                // 旧地点那一帧先清掉，避免串景
+                LiveCamFeed.shared.update(place: w.place)
             }
             lastWeather = w
             apply(w, animated: true)

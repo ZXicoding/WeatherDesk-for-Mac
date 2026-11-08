@@ -160,6 +160,31 @@ final class SkyView: NSView {
         starHost.addSublayer(twinkleHost)
         starHost.addSublayer(labelHost)
         applyFrames()
+        // 实时摄像头抓到新帧时只替换底图内容，不重建云 / 雨 / 雪粒子层
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(liveCamFrameChanged),
+            name: .wdLiveCamFrame, object: nil)
+    }
+
+    @objc private func liveCamFrameChanged() {
+        guard Settings.shared.backgroundMode != .sky else { return }
+        guard Settings.shared.liveCamEnabled else {
+            // 关掉实时摄像头：重新按天气 / 时段选回静态底图
+            if let w = weather { apply(weather: w, animated: false) }
+            return
+        }
+        if let img = LiveCamFeed.shared.currentFrame {
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(1.1)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+            sceneLayer.contents = img
+            sceneLayer.isHidden = false
+            sceneLayer.opacity = Float(Settings.shared.skyOpacity)
+            CATransaction.commit()
+        } else if let w = weather {
+            // 附近摄像头全不可用：无缝回退到静态照片，桌面不会空白
+            apply(weather: w, animated: false)
+        }
     }
 
     override func layout() {
@@ -178,6 +203,8 @@ final class SkyView: NSView {
         install()
         guard installed, bounds.width > 1 else { return }
         weather = w
+        // 第一次 apply 就启动实时帧供给；内部按地点去重，不会因 20 秒的太阳刷新反复重启
+        LiveCamFeed.shared.ensure(place: w.place)
         // 真实数据：相位 / 星空 / 暖色都由太阳真实地平高度 + 升落趋势实时决定，
         // 日出日落那一刻画面就切换，不再等天气接口下一次刷新。
         // 演示 / 预览：仍用人工构造的日出日落插值，保证白天也能看到完整效果。
@@ -194,10 +221,12 @@ final class SkyView: NSView {
         let pal = Palette.make(state: st, condition: w.condition, cloudCover: w.cloudCover)
         let target = Self.cloudTarget(w)
 
+        let packSig = Settings.shared.autoBiome
+            ? (Settings.forcedBiomePack ?? EcoScene.biome(for: w).photoPack) : "off"
         let structSig = [w.condition.rawValue, String(target),
                          String(Int(Settings.shared.intensity * 10)),
                          String(Int(bounds.width)), String(Int(bounds.height)),
-                         Settings.shared.backgroundMode.rawValue]
+                         Settings.shared.backgroundMode.rawValue, packSig]
             .joined(separator: "|")
         let rebuild = structSig != signature
         signature = structSig
@@ -291,13 +320,22 @@ final class SkyView: NSView {
     }
 
     /// 背景优先级：
-    /// photo = 该地点专属照片包 > default 照片包 > Bundle 内置照片，粒子层照常叠加
+    /// photo = 公开实时摄像头帧（开启时） > 该地点专属照片 > 生态带包 > default > 内置
     /// eco   = 该地点专属照片包 > 现场生成的当地生态 > Bundle 内置照片兜底
     /// sky   = 不使用底图，回到纯程序化天空
     private static func sceneImage(for w: Weather, st: SkyState, size: CGSize) -> CGImage? {
         switch Settings.shared.backgroundMode {
         case .photo:
-            return customPhoto(for: w, st: st, includeDefault: true) ?? bundlePhoto(for: w, st: st)
+            // 实时摄像头优先：换 IP 后 update(place:) 会换掉当前摄像头并清空旧帧，
+            // 抓到新帧前这里自动回退静态照片，不会出现旧地点的画面或黑屏。
+            if Settings.shared.liveCamEnabled,
+               let frame = LiveCamFeed.shared.currentFrame { return frame }
+            // 优先级：地点专属照片 > 当地生态带照片包 > 用户 default > 内置通用 5 张。
+            // 换 IP 后 place 变化会清缓存，生态带包立即按新经纬度 / 气候重选。
+            if let local = customPhoto(for: w, st: st, includeDefault: false) { return local }
+            if Settings.shared.autoBiome, let pack = biomePhoto(for: w, st: st) { return pack }
+            return customPhoto(for: w, st: st, includeDefault: true)
+                ?? bundlePhoto(for: w, st: st)
         case .eco:
             if let custom = customPhoto(for: w, st: st, includeDefault: false) { return custom }
             return EcoScene.image(for: w, st: st, size: size) ?? bundlePhoto(for: w, st: st)
@@ -330,6 +368,32 @@ final class SkyView: NSView {
             if !t.isEmpty, !out.contains(t) { out.append(t) }
         }
         return out
+    }
+
+    /// 按当地生态带取一套内置实景照片。每套至少备白天 / 暮色 / 阴雨三类，
+    /// 缺的时段或天气只在**同一套内**回退，风格不会串到别的生态带。
+    private static func biomePhoto(for w: Weather, st: SkyState) -> CGImage? {
+        let pack = Settings.forcedBiomePack ?? EcoScene.biome(for: w).photoPack
+        guard EcoBiome.allPhotoPacks.contains(pack) else { return nil }
+        let name = photoName(for: w, st: st)
+        let chain: [String]
+        switch name {
+        case "scene-sunset": chain = [name, "scene-night", "scene-clear"]
+        case "scene-night":  chain = [name, "scene-clear"]
+        case "scene-snow":   chain = [name, "scene-rain", "scene-clear"]
+        case "scene-rain":   chain = [name, "scene-clear"]
+        default:             chain = [name]
+        }
+        for n in chain {
+            let key = "biome/\(pack)/\(n)"
+            if let hit = photoCache[key] { return hit }
+            guard let url = Bundle.main.url(forResource: n, withExtension: "jpg",
+                                            subdirectory: "biomes/\(pack)"),
+                  let img = loadImage(at: url) else { continue }
+            photoCache[key] = img
+            return img
+        }
+        return nil
     }
 
     private static func customPhoto(for w: Weather, st: SkyState,
@@ -1073,7 +1137,10 @@ final class SkyView: NSView {
         }
     }
 
-    deinit { lightningWork?.cancel() }
+    deinit {
+        lightningWork?.cancel()
+        NotificationCenter.default.removeObserver(self)
+    }
 }
 
 // MARK: - 离屏预览（仅供 tools/preview.swift 使用）

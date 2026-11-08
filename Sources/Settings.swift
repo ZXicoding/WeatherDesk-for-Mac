@@ -46,6 +46,13 @@ struct Place: Codable, Equatable {
 /// 所有偏好都落在 UserDefaults，不写配置文件、不联网上传。
 final class Settings {
     static let shared = Settings()
+
+    /// 仅由启动参数 --biome=<pack> 设置，用于预览 / 自检，不写入偏好
+    static var forcedBiomePack: String?
+    /// 仅由启动参数 --cam=<id> 设置，用于预览某个公开摄像头，不写入偏好
+    static var forcedLiveCam: String?
+    /// 仅由 --live / --no-live 设置，用于截屏自检，不写入偏好
+    static var debugLiveCam: Bool?
     private let ud = UserDefaults.standard
     private let p = "weatherdesk."
 
@@ -102,6 +109,42 @@ final class Settings {
     var backgroundMode: BackgroundMode {
         get { BackgroundMode(rawValue: read("backgroundMode", "photo")) ?? .photo }
         set { write("backgroundMode", newValue.rawValue) }
+    }
+
+    /// 换 IP / 换城市时，按经纬度与当地气候推断生态带，自动切到对应的一套实景照片。
+    /// 默认关闭：内置目前只提供湿地一套，其余生态带可用 `Resources/biomes/<pack>/`
+    /// 自行放入同名 5 张后开启；空包会自动回退到通用静态底图。
+    var autoBiome: Bool {
+        get { read("autoBiome", false) }
+        set { write("autoBiome", newValue) }
+    }
+
+    // MARK: 公开实时摄像头
+
+    /// 用附近公开摄像头的最新一帧 JPEG 做底图。
+    /// 默认关闭：真实夜间机位常是暗场城市灯光且带站点水印，会盖掉已确认的静态底图；
+    /// 在菜单栏「实时摄像头」里可一键开启，关掉即刻回到静态照片。
+    var liveCamEnabled: Bool {
+        get {
+            if let debug = Settings.debugLiveCam { return debug }
+            return read("liveCamEnabled", false)
+        }
+        set { write("liveCamEnabled", newValue) }
+    }
+
+    /// 抓帧间隔（秒）。opencam.live 的快照约 15 秒更新一次。
+    var liveCamInterval: Int {
+        get { read("liveCamInterval", 20) }
+        set { write("liveCamInterval", min(600, max(10, newValue))) }
+    }
+
+    /// 手动固定的摄像头 ID；nil 时按定位坐标自动选最近的
+    var liveCamID: String? {
+        get {
+            let v: String = read("liveCamID", "")
+            return v.isEmpty ? nil : v
+        }
+        set { write("liveCamID", newValue ?? "") }
     }
 
     var refreshMinutes: Int {
