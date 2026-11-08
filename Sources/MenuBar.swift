@@ -103,8 +103,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         add("显示桌面天气      ⌃⌥D", #selector(toggleEnabled), menu, on: s.enabled)
         add("显示天气角标", #selector(toggleInfo), menu, on: s.showInfo)
         add("显示星座连线与星名", #selector(toggleStarLabels), menu, on: s.showConstellations)
-        add("实景模式（真实照片底图）", #selector(toggleRealScene), menu, on: s.realSceneEnabled)
-        add("当地生态背景（随 IP 变化）", #selector(toggleEcoBackground), menu, on: s.backgroundMode == .eco)
+        let bg = NSMenu()
+        add("实景照片 + 粒子效果", #selector(setBackgroundMode(_:)), bg,
+            on: s.backgroundMode == .photo, tag: BackgroundMode.photo.rawValue)
+        add("程序化天空（无底图）", #selector(setBackgroundMode(_:)), bg,
+            on: s.backgroundMode == .sky, tag: BackgroundMode.sky.rawValue)
+        add("当地生态绘制（实验）", #selector(setBackgroundMode(_:)), bg,
+            on: s.backgroundMode == .eco, tag: BackgroundMode.eco.rawValue)
+        submenu("背景来源", bg, menu)
         menu.addItem(.separator())
 
         let intensity = NSMenu()
@@ -206,13 +212,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         Settings.shared.showConstellations = !Settings.shared.showConstellations
     }
 
-    @objc private func toggleRealScene() {
-        Settings.shared.realSceneEnabled = !Settings.shared.realSceneEnabled
-    }
-
-    @objc private func toggleEcoBackground() {
-        Settings.shared.backgroundMode = Settings.shared.backgroundMode == .eco ? .photo : .eco
+    @objc private func setBackgroundMode(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let m = BackgroundMode(rawValue: raw) else { return }
+        // 先清底图缓存，再写偏好（同步触发 rebuild），最后补一帧确保动画层重建
         SkyView.invalidateScenes()
+        Settings.shared.backgroundMode = m
         DesktopController.shared.reapply()
     }
 

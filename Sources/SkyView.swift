@@ -196,7 +196,8 @@ final class SkyView: NSView {
 
         let structSig = [w.condition.rawValue, String(target),
                          String(Int(Settings.shared.intensity * 10)),
-                         String(Int(bounds.width)), String(Int(bounds.height))]
+                         String(Int(bounds.width)), String(Int(bounds.height)),
+                         Settings.shared.backgroundMode.rawValue]
             .joined(separator: "|")
         let rebuild = structSig != signature
         signature = structSig
@@ -214,9 +215,11 @@ final class SkyView: NSView {
                       pal.mid.cgColor,
                       pal.mid.mixed(pal.bottom, 0.58).cgColor,
                       pal.bottom.cgColor]
-        // 实景模式（方案一）：真实照片做底，云 / 雨 / 雪 / 闪电继续叠加；
-        // 程序化天空渐变、日月与星图让位。找不到照片素材时自动回退。
-        let scene = Settings.shared.realSceneEnabled ? Self.sceneImage(for: w, st: st, size: bounds.size) : nil
+        // 照片实景模式：真实照片做底，云 / 雨 / 雪 / 雾 / 闪电继续作为动画层叠加；
+        // 程序化天空渐变、日月与星图让位给照片自带的光照。找不到素材时自动回退。
+        // 切换背景来源时 structSig 变化，会连带重建全部动画层，不留旧粒子。
+        let mode = Settings.shared.backgroundMode
+        let scene = mode == .sky ? nil : Self.sceneImage(for: w, st: st, size: bounds.size)
         let cloudVeil = pow(max(0, 1 - Double(w.cloudCover) / 100), 1.15)
         // 实时数据下星点可见度直接由真实的暮光暗度驱动，太阳落山即亮起
         let night = w.simulated ? st.stars : frame.darkness
@@ -288,15 +291,18 @@ final class SkyView: NSView {
     }
 
     /// 背景优先级：
-    /// 生态模式 = 该地点专属照片包 > 现场生成的当地生态 > Bundle 内置照片兜底
-    /// 照片模式 = 该地点专属照片包 > default 照片包 > Bundle 内置照片
+    /// photo = 该地点专属照片包 > default 照片包 > Bundle 内置照片，粒子层照常叠加
+    /// eco   = 该地点专属照片包 > 现场生成的当地生态 > Bundle 内置照片兜底
+    /// sky   = 不使用底图，回到纯程序化天空
     private static func sceneImage(for w: Weather, st: SkyState, size: CGSize) -> CGImage? {
         switch Settings.shared.backgroundMode {
+        case .photo:
+            return customPhoto(for: w, st: st, includeDefault: true) ?? bundlePhoto(for: w, st: st)
         case .eco:
             if let custom = customPhoto(for: w, st: st, includeDefault: false) { return custom }
             return EcoScene.image(for: w, st: st, size: size) ?? bundlePhoto(for: w, st: st)
-        case .photo:
-            return customPhoto(for: w, st: st, includeDefault: true) ?? bundlePhoto(for: w, st: st)
+        case .sky:
+            return nil
         }
     }
 
@@ -1042,11 +1048,15 @@ final class SkyView: NSView {
             let names = frame.visibleConstellations(2).joined(separator: " · ")
             line(names.isEmpty ? "今夜云层较厚，星星被遮住了" : "今夜可见：\(names) 等", 24,
                  .systemFont(ofSize: 10, weight: .medium), 0.78)
-            var tail = (Settings.shared.realSceneEnabled && !sceneLayer.isHidden)
-                ? (Settings.shared.backgroundMode == .eco
-                   ? "当地生态 · \(EcoScene.biome(for: w).label) · 月相 \(Int(frame.moonIllumination * 100))%"
-                   : "实景模式 · 月相 \(Int(frame.moonIllumination * 100))%")
-                : "真实星图 \(starCount) 颗 · 月相 \(Int(frame.moonIllumination * 100))%"
+            let moon = "月相 \(Int(frame.moonIllumination * 100))%"
+            var tail: String
+            if sceneLayer.isHidden {
+                tail = "真实星图 \(starCount) 颗 · \(moon)"
+            } else if Settings.shared.backgroundMode == .eco {
+                tail = "当地生态 · \(EcoScene.biome(for: w).label) · \(moon)"
+            } else {
+                tail = "实景模式 · \(moon)"
+            }
             if let mr = Astronomy.dayEvents(date: Date(), place: w.place).moonrise {
                 tail += " · 月升 \(hhmm(mr))"
             }

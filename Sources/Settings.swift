@@ -5,10 +5,14 @@ extension Notification.Name {
     static let wdSettingsChanged = Notification.Name("com.xi.weatherdesk.settingsChanged")
 }
 
-/// 背景来源：默认按 IP 现场生成当地自然生态；也可切回实景照片
+/// 背景来源。v1.3 起默认「实景照片底图 + 粒子动画层」。
+/// - photo：真实照片做底，云 / 雨 / 雪 / 雾 / 闪电作为动画层叠加
+/// - eco  ：按经纬度现场绘制当地自然生态（实验，分层绘制而非照片）
+/// - sky  ：不使用底图，纯程序化天空 / 日月 / 星图
 enum BackgroundMode: String {
-    case eco
     case photo
+    case eco
+    case sky
 }
 
 enum LocationMode: String {
@@ -45,7 +49,15 @@ final class Settings {
     private let ud = UserDefaults.standard
     private let p = "weatherdesk."
 
-    private init() {}
+    private init() {
+        // v1.2 曾把「当地生态」设为默认并写入偏好。v1.3 回到照片实景，
+        // 这里做一次性迁移，避免升级后旧偏好把画面又切回插画风。
+        let migratedKey = p + "bgDefaultV13"
+        if ud.object(forKey: migratedKey) == nil {
+            ud.set(BackgroundMode.photo.rawValue, forKey: p + "backgroundMode")
+            ud.set(true, forKey: migratedKey)
+        }
+    }
 
     private func read<T>(_ key: String, _ fallback: T) -> T {
         (ud.object(forKey: p + key) as? T) ?? fallback
@@ -86,16 +98,9 @@ final class Settings {
         set { write("skyOpacity", min(1.0, max(0.0, newValue))) }
     }
 
-    /// 实景模式：用真实照片做底图，云/雨雪/闪电以半透明动画层叠加在上面。
-    /// 找不到照片素材时自动回退到程序化天空。
-    var realSceneEnabled: Bool {
-        get { read("realSceneEnabled", true) }
-        set { write("realSceneEnabled", newValue) }
-    }
-
-    /// 背景来源：默认按 IP 现场生成当地自然生态；也可切回实景照片
+    /// 背景来源：默认是实景照片底图 + 粒子动画层。切换时会重建桌面窗口与动画层。
     var backgroundMode: BackgroundMode {
-        get { BackgroundMode(rawValue: read("backgroundMode", "eco")) ?? .eco }
+        get { BackgroundMode(rawValue: read("backgroundMode", "photo")) ?? .photo }
         set { write("backgroundMode", newValue.rawValue) }
     }
 
