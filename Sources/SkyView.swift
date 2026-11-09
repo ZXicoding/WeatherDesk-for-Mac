@@ -1,5 +1,6 @@
 import AppKit
 import QuartzCore
+import CoreImage
 
 /// 一块桌面级画布。
 ///
@@ -254,7 +255,7 @@ final class SkyView: NSView {
         let night = w.simulated ? st.stars : frame.darkness
         if let img = scene {
             CATransaction.setDisableActions(true)
-            sceneLayer.contents = img
+            sceneLayer.contents = Self.graded(scene: img, st: st, w: w)
             sceneLayer.isHidden = false
             sceneLayer.opacity = Float(Settings.shared.skyOpacity)
             sky.opacity = 0
@@ -327,7 +328,110 @@ final class SkyView: NSView {
 
     static func invalidateScenes() {
         photoCache.removeAllObjects()
+        gradedCache.removeAllObjects()
         EcoScene.invalidate()
+    }
+
+    // MARK: 实景照片实时光线调色（真实太阳高度角 + 天气）
+
+    /// GPU 上下文与调色结果缓存。桌面每 20 秒 apply 一次，但「光线签名」
+    /// （太阳高度角 / 暖度 / 天气 / 云量 量化）变化很慢，故按「原图指针 + 签名」缓存，
+    /// 避免对 4K 底图每帧重跑 Core Image。
+    private static let ciContext = CIContext()
+    private static let gradedCache: NSCache<NSString, CGImage> = {
+        let c = NSCache<NSString, CGImage>()
+        c.totalCostLimit = 3840 * 2310 * 4 * 6   // 约 6 张调色结果（≈170 MB）
+        c.countLimit = 12
+        return c
+    }()
+
+    /// 对实景照片施加由真实太阳高度角 + 天气驱动的实时光线调色。
+    /// 关掉（或实时摄像头帧）时原样返回，不影响已确认的实景默认模式。
+    static func graded(scene img: CGImage, st: SkyState, w: Weather) -> CGImage {
+        guard Settings.shared.realtimeLighting else { return img }
+        // 实时摄像头帧本身是真实画面，叠太阳 / 天气色调会失真，跳过
+        if Settings.shared.liveCamEnabled, LiveCamFeed.shared.currentFrame != nil { return img }
+        let altQ  = Int((st.altitude + 18) / 1.5)   // 1.5° 一档
+        let warmQ = Int(st.warmth * 20)             // 0.05 一档
+        let coverQ = Int(w.cloudCover / 5)          // 5% 一档
+        let sig = "\(w.condition.rawValue)_\(altQ)_\(warmQ)_\(coverQ)"
+        let key = "\(ObjectIdentifier(img))|\(sig)" as NSString
+        if let hit = gradedCache.object(forKey: key) { return hit }
+        let out = applyGrade(img, lightParams(st: st, w: w))
+        gradedCache.setObject(out, forKey: key, cost: out.bytesPerRow * out.height)
+        return out
+    }
+
+    /// 把「真实太阳高度角 + 天气」映射成 (亮度, 对比, 饱和, 色调RGB)，
+    /// 对应离线验证过的 8 种光线类型质感：阴天平漫射不压暗、晨昏暖柔、
+    /// 雨冷湿、雪亮冷、夜深蓝——是「不同光线有不同质感」，而非单纯变暗。
+    private struct LP { var b, c, s, tr, tg, tb: Double }
+    private static func lerp(_ a: LP, _ b: LP, _ t: Double) -> LP {
+        LP(b: a.b + (b.b - a.b) * t, c: a.c + (b.c - a.c) * t, s: a.s + (b.s - a.s) * t,
+           tr: a.tr + (b.tr - a.tr) * t, tg: a.tg + (b.tg - a.tg) * t, tb: a.tb + (b.tb - a.tb) * t)
+    }
+    private static func lightParams(st: SkyState, w: Weather) -> LP {
+        let alt = st.altitude
+        // 天气预设（非晴 / 非少云）
+        let overcast = LP(b: 0.97, c: 0.80, s: 0.66, tr: 0.96, tg: 0.99, tb: 1.05)  // 平漫射，不压暗
+        let fog      = LP(b: 1.01, c: 0.62, s: 0.52, tr: 1.00, tg: 1.01, tb: 1.03)
+        let rain     = LP(b: 0.84, c: 0.86, s: 0.70, tr: 0.92, tg: 0.98, tb: 1.12)  // 冷湿略暗非黑
+        let drizzle  = LP(b: 0.90, c: 0.83, s: 0.68, tr: 0.94, tg: 0.99, tb: 1.08)
+        let snow     = LP(b: 1.10, c: 0.96, s: 0.82, tr: 1.02, tg: 1.04, tb: 1.09)  // 亮冷高调
+        // 太阳预设（晴 / 少云）：暖地平线 ↔ 正午中性 ↔ 夜蓝
+        let horizonWarm = LP(b: 0.99, c: 1.02, s: 0.95, tr: 1.16, tg: 0.97, tb: 0.78)
+        let noon        = LP(b: 1.03, c: 1.06, s: 1.00, tr: 1.00, tg: 1.00, tb: 1.00)
+        let night       = LP(b: 0.34, c: 0.92, s: 0.85, tr: 0.78, tg: 0.90, tb: 1.28)
+
+        let cond = w.condition
+        if cond == .rain || cond == .heavyRain || cond == .thunder { return rain }
+        if cond == .snow || cond == .sleet { return snow }
+        if cond == .fog { return fog }
+        if cond == .drizzle { return drizzle }
+        if cond == .overcast || cond == .cloudy { return overcast }
+
+        // 晴 / 少云：由太阳高度角在 暖地平线 ↔ 正午 ↔ 夜 之间连续插值
+        let sun: LP
+        if alt >= 0 {
+            sun = lerp(horizonWarm, noon, min(1, max(0, alt / 30)))
+        } else {
+            sun = lerp(horizonWarm, night, min(1, max(0, (-alt) / 8)))  // -8° 由暖暮沉入蓝夜
+        }
+        // 少云：按云量把太阳预设往「阴天平漫射」方向拉一点，但保留阳光特征
+        if cond == .partlyCloudy {
+            return lerp(sun, overcast, min(0.6, Double(w.cloudCover) / 100 * 0.9))
+        }
+        return sun
+    }
+
+    /// 与离线脚本一致的调色链：亮度(乘) → 对比+饱和(CIColorControls) → 色调(乘)。
+    private static func applyGrade(_ img: CGImage, _ p: LP) -> CGImage {
+        let ci = CIImage(cgImage: img)
+        let zero = CIVector(x: 0, y: 0, z: 0, w: 0)
+        // 1) 亮度（乘性，围绕 1）
+        let m1 = CIFilter(name: "CIColorMatrix")!
+        m1.setValue(ci, forKey: kCIInputImageKey)
+        m1.setValue(CIVector(x: p.b, y: 0, z: 0, w: 0), forKey: "inputRVector")
+        m1.setValue(CIVector(x: 0, y: p.b, z: 0, w: 0), forKey: "inputGVector")
+        m1.setValue(CIVector(x: 0, y: 0, z: p.b, w: 0), forKey: "inputBVector")
+        m1.setValue(CIVector(x: 0, y: 0, z: 0, w: 1), forKey: "inputAVector")
+        m1.setValue(zero, forKey: "inputBiasVector")
+        // 2) 对比 + 饱和（CIColorControls 在 0.5 中点做对比、绕亮度做饱和，与离线脚本一致）
+        let cc = CIFilter(name: "CIColorControls")!
+        cc.setValue(m1.outputImage, forKey: kCIInputImageKey)
+        cc.setValue(NSNumber(value: p.c), forKey: "inputContrast")
+        cc.setValue(NSNumber(value: p.s), forKey: "inputSaturation")
+        cc.setValue(NSNumber(value: 0.0), forKey: "inputBrightness")
+        // 3) 色调（乘性 RGB）
+        let m2 = CIFilter(name: "CIColorMatrix")!
+        m2.setValue(cc.outputImage, forKey: kCIInputImageKey)
+        m2.setValue(CIVector(x: p.tr, y: 0, z: 0, w: 0), forKey: "inputRVector")
+        m2.setValue(CIVector(x: 0, y: p.tg, z: 0, w: 0), forKey: "inputGVector")
+        m2.setValue(CIVector(x: 0, y: 0, z: p.tb, w: 0), forKey: "inputBVector")
+        m2.setValue(CIVector(x: 0, y: 0, z: 0, w: 1), forKey: "inputAVector")
+        m2.setValue(zero, forKey: "inputBiasVector")
+        let out = m2.outputImage!
+        return ciContext.createCGImage(out, from: CGRect(x: 0, y: 0, width: img.width, height: img.height))!
     }
 
     /// 背景优先级：

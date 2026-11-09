@@ -112,6 +112,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             on: s.backgroundMode == .eco, tag: BackgroundMode.eco.rawValue)
         bg.addItem(.separator())
         add("每 2 小时更换底图", #selector(toggleTwoHourScenes), bg, on: s.twoHourScenes)
+        bg.addItem(.separator())
+        add("实时光线（太阳 / 天气驱动）", #selector(toggleRealtimeLighting), bg, on: s.realtimeLighting)
         if s.twoHourScenes {
             let tz = lastWeather.map { SceneClock.timeZone($0) } ?? .current
             let slot = SceneClock.slot(timeZone: tz)
@@ -282,6 +284,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func toggleAutoBiome() {
         SkyView.invalidateScenes()
         Settings.shared.autoBiome = !Settings.shared.autoBiome
+        DesktopController.shared.reapply()
+    }
+
+    @objc private func toggleRealtimeLighting() {
+        SkyView.invalidateScenes()
+        Settings.shared.realtimeLighting = !Settings.shared.realtimeLighting
         DesktopController.shared.reapply()
     }
 

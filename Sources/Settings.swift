@@ -113,6 +113,13 @@ final class Settings {
         set { write("backgroundMode", newValue.rawValue) }
     }
 
+    /// 实景照片实时光线调色：由真实太阳高度角 + 天气驱动不同光线质感（阴天平漫射、
+    /// 晨昏暖柔、雨冷湿、雪亮冷、夜蓝），而非单纯变暗。默认开；关掉即回到原样照片。
+    var realtimeLighting: Bool {
+        get { read("realtimeLighting", true) }
+        set { write("realtimeLighting", newValue) }
+    }
+
     /// 实景底图按当地时间每 2 小时换一张（12 档）。关掉则回到旧的「天气 × 白天/暮色/夜」5 张。
     /// 默认开启：旧的 night 档覆盖日落到日出的十几个小时，下午和深夜会是同一张图。
     var twoHourScenes: Bool {
