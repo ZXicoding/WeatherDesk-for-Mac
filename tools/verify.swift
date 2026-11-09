@@ -290,6 +290,91 @@ struct Verify {
             ok("深夜明显暗于午后", false)
         }
 
+        print("— 晴天 / 阴天双版本底图")
+        /// 「雾蒙蒙」的本质是高亮度 + 极低饱和（灰白一片），用色度量化最准
+        func chroma(_ f: String) -> CGFloat? {
+            guard let d = try? Data(contentsOf: photoRoot.appendingPathComponent(f)),
+                  let src = CGImageSourceCreateWithData(d as CFData, nil),
+                  let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
+            let n = 16
+            var px = [UInt8](repeating: 0, count: n * n * 4)
+            guard let ctx = CGContext(data: &px, width: n, height: n, bitsPerComponent: 8,
+                                      bytesPerRow: n * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return nil }
+            ctx.interpolationQuality = .high
+            ctx.draw(img, in: CGRect(x: 0, y: 0, width: n, height: n))
+            var sum: CGFloat = 0
+            for i in stride(from: 0, to: px.count, by: 4) {
+                let r = CGFloat(px[i]), g = CGFloat(px[i + 1]), b = CGFloat(px[i + 2])
+                sum += (max(r, g, b) - min(r, g, b)) / 255
+            }
+            return sum / CGFloat(n * n)
+        }
+
+        var sunny = weather(rise: -3600, set: 3600 * 8, next: 3600 * 20)
+        sunny.condition = .clear; sunny.cloudCover = 0; sunny.precipitation = 0
+        ok("晴天 + 云量 0 判为艳阳", sunny.isSunnyScene)
+        var few = sunny; few.condition = .partlyCloudy; few.cloudCover = 30
+        ok("少云 + 云量 30 判为艳阳", few.isSunnyScene)
+        var clearNight = sunny; clearNight.isDay = false
+        ok("晴夜也用清朗版", clearNight.isSunnyScene)
+        for (label, cond) in [("多云", Condition.cloudy), ("阴", .overcast),
+                              ("雾", .fog), ("雨", .rain), ("雪", .snow)] {
+            var w = sunny; w.condition = cond
+            ok("\(label)不套艳阳版", !w.isSunnyScene)
+        }
+        var hazy = sunny; hazy.cloudCover = 90
+        ok("晴码但云量 90 不套艳阳版", !hazy.isSunnyScene)
+        var wet = sunny; wet.precipitation = 1.2
+        ok("有降水不套艳阳版", !wet.isSunnyScene)
+
+        ok("晴天 h12 优先 -sun",
+           SceneClock.names(slot: 12, condition: .clear, isSunny: true)
+            == ["scene-h12-sun", "scene-h12"])
+        ok("阴天 h12 只用主图",
+           SceneClock.names(slot: 12, condition: .overcast, isSunny: false)
+            == ["scene-h12"])
+        ok("雨天 h12 优先 -rain",
+           SceneClock.names(slot: 12, condition: .rain, isSunny: false)
+            == ["scene-h12-rain", "scene-h12"])
+        ok("雪天 h12 优先 -snow",
+           SceneClock.names(slot: 12, condition: .snow, isSunny: false)
+            == ["scene-h12-snow", "scene-h12"])
+        ok("12 档晴天名各自不同",
+           Set(SceneClock.allSlots.map {
+               SceneClock.names(slot: $0, condition: .clear, isSunny: true)[0]
+           }).count == 12)
+
+        let sunFiles = SceneClock.allSlots.map { "\(SceneClock.name($0))-sun.jpg" }
+        let sunPresent = sunFiles.filter {
+            FileManager.default.fileExists(atPath: photoRoot.appendingPathComponent($0).path) }
+        ok("内置 12 张艳阳版齐全（\(sunPresent.count)/12）", sunPresent.count == 12)
+        ok("艳阳版全部为 1536×924", sunPresent.allSatisfy { f in
+            guard let data = try? Data(contentsOf: photoRoot.appendingPathComponent(f)),
+                  let rep = NSBitmapImageRep(data: data) else { return false }
+            return rep.pixelsWide == 1536 && rep.pixelsHigh == 924
+        })
+        let sunHashes = sunFiles.compactMap { fnv(photoRoot.appendingPathComponent($0)) }
+        ok("12 张艳阳版内容两两不同", sunHashes.count == 12 && Set(sunHashes).count == 12)
+
+        let daySlots = [8, 10, 12, 14, 16]
+        let dayBase = daySlots.compactMap {
+            chroma(String(format: "scene-h%02d.jpg", $0)) }
+        let daySun = daySlots.compactMap {
+            chroma(String(format: "scene-h%02d-sun.jpg", $0)) }
+        if dayBase.count == 5, daySun.count == 5 {
+            let b = dayBase.reduce(0, +) / 5, s = daySun.reduce(0, +) / 5
+            ok(String(format: "白天晴版明显更通透（饱和 %.3f > %.3f）", s, b), s > b * 1.30)
+        } else {
+            ok("白天晴版明显更通透", false)
+        }
+        if let cb = chroma("scene-h12.jpg"), let cs = chroma("scene-h12-sun.jpg") {
+            ok(String(format: "正午档不再灰白一片（%.3f → %.3f）", cb, cs), cs > cb * 1.8)
+        } else {
+            ok("正午档不再灰白一片", false)
+        }
+
         print("— 生态带实景照片包")
         let packs = ["wetland", "temperate", "subtropical", "grassland",
                      "desert", "conifer", "tundra", "tropical"]
@@ -297,6 +382,7 @@ struct Verify {
                          "scene-rain", "scene-snow"])
         for s in SceneClock.allSlots {
             legal.insert(SceneClock.name(s))
+            legal.insert("\(SceneClock.name(s))-sun")
             legal.insert("\(SceneClock.name(s))-rain")
             legal.insert("\(SceneClock.name(s))-snow")
         }

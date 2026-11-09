@@ -48,4 +48,25 @@ enum SceneClock {
         let h = ((slot % 24) + 24) % 24
         return String(format: "%02d:00–%02d:00", h, (h + slotHours) % 24)
     }
+
+    /// 雨雪 / 雾的天气专属覆盖标签
+    static func weatherTag(_ c: Condition) -> String? {
+        switch c {
+        case .drizzle, .rain, .heavyRain, .thunder, .fog: return "rain"
+        case .snow, .sleet:                               return "snow"
+        default:                                          return nil
+        }
+    }
+
+    /// 某档位在某天气下的底图候选名，按优先级排列。纯函数，自检可直接调用。
+    ///
+    /// 晴天（isSunny）优先 `scene-hHH-sun.jpg` 通透版；雨雪 / 雾优先
+    /// `scene-hHH-rain/snow.jpg`；其余用主图。素材缺失时逐层回退主图，
+    /// 不会黑屏。
+    static func names(slot: Int, condition c: Condition, isSunny: Bool) -> [String] {
+        let base = name(slot)
+        if let tag = weatherTag(c) { return ["\(base)-\(tag)", base] }
+        if isSunny { return ["\(base)-sun", base] }
+        return [base]
+    }
 }

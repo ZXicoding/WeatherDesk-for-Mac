@@ -154,6 +154,22 @@ struct Weather: Codable {
 
     var localTimeZone: TimeZone { TimeZone(secondsFromGMT: utcOffset) ?? .current }
 
+    /// 是否属于「通透好天」：无降水、无雾、云量低、天气码为晴或少云。
+    ///
+    /// 2 小时档位底图按它在两套素材里二选一：
+    /// `scene-hHH-sun.jpg`（蓝天通透、艳阳版）/ `scene-hHH.jpg`（柔和灰调、阴天版）。
+    /// 阴、多云、雾、雨雪一律走后者；不限 isDay —— 晴夜也该是清朗深蓝，
+    /// 而不是灰蒙蒙一片。只影响底图，粒子层照旧按天气出云、雨、雪、雾。
+    var isSunnyScene: Bool {
+        guard precipitation <= 0.01,
+              !condition.isRainy, !condition.isSnowy, !condition.isFoggy else { return false }
+        switch condition {
+        case .clear:        return cloudCover <= 60
+        case .partlyCloudy: return cloudCover <= 45
+        default:            return false
+        }
+    }
+
     /// 用当地日出 / 日落时间算出此刻太阳或月亮在画面里的位置。
     /// 这是「日落时背景就是日落」的关键：不依赖天气接口的 is_day 布尔值，
     /// 而是按真实天文时间在两次刷新之间连续推进。

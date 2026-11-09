@@ -346,37 +346,40 @@ final class SkyView: NSView {
         }
     }
 
-    /// 当前 2 小时档位的候选文件名。天气专属覆盖（rain / snow）优先，
-    /// 其次才是该档主图；内置没有天气覆盖时，天气交给粒子层与雾幕表达。
+    /// 当前 2 小时档位的候选文件名。雨雪 / 雾的天气专属覆盖优先，
+    /// 其次按天气在「艳阳版 -sun」与「柔和主图」之间二选一。
+    ///
+    /// v1.5.0 这里只有时间一个维度，导致大晴天正午也挂着阴天拍的灰白大水面。
+    /// 现在晴天（晴 / 少云、无降水、云量低）先找 `scene-hHH-sun.jpg`：
+    /// 蓝天白云、明显通透；多云 / 阴 / 雾 / 雨雪仍用原来的主图，灰调正合适。
+    /// 素材缺失时自动回退主图，不会黑屏。
     private static func slotNames(for w: Weather) -> [String] {
         let tz = SceneClock.timeZone(w)
         let slot = Settings.forcedSlot ?? SceneClock.slot(date: Date(), timeZone: tz)
-        let base = SceneClock.name(slot)
-        if let tag = weatherTag(w.condition) { return ["\(base)-\(tag)", base] }
-        return [base]
+        return SceneClock.names(slot: slot, condition: w.condition,
+                                isSunny: w.isSunnyScene)
     }
 
     /// 兼容旧版 5 张命名，同时作为 12 档素材缺失时的兜底链。
+    /// 与 12 档一致：晴天用通透的 scene-clear，阴 / 多云用灰调的 scene-rain。
     private static func legacyNames(for w: Weather, st: SkyState) -> [String] {
         switch w.condition {
         case .drizzle, .rain, .heavyRain, .thunder, .fog:
             return ["scene-rain", "scene-clear"]
         case .snow, .sleet:
             return ["scene-snow", "scene-rain", "scene-clear"]
-        case .clear, .partlyCloudy, .cloudy, .overcast:
+        case .cloudy, .overcast:
+            switch st.phase {
+            case .night:       return ["scene-night", "scene-rain", "scene-clear"]
+            case .dawn, .dusk: return ["scene-rain", "scene-sunset", "scene-clear"]
+            case .day:         return ["scene-rain", "scene-clear"]
+            }
+        case .clear, .partlyCloudy:
             switch st.phase {
             case .night:       return ["scene-night", "scene-clear"]
             case .dawn, .dusk: return ["scene-sunset", "scene-night", "scene-clear"]
             case .day:         return ["scene-clear"]
             }
-        }
-    }
-
-    private static func weatherTag(_ c: Condition) -> String? {
-        switch c {
-        case .drizzle, .rain, .heavyRain, .thunder, .fog: return "rain"
-        case .snow, .sleet:                              return "snow"
-        default:                                         return nil
         }
     }
 

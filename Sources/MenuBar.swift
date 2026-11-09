@@ -116,6 +116,17 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             let tz = lastWeather.map { SceneClock.timeZone($0) } ?? .current
             let slot = SceneClock.slot(timeZone: tz)
             disabled("当前档位  \(SceneClock.label(slot))", bg)
+            let kind: String
+            if let w = lastWeather {
+                if w.condition.isRainy || w.condition.isSnowy || w.condition.isFoggy {
+                    kind = "雨雪 / 雾天版"
+                } else {
+                    kind = w.isSunnyScene ? "晴天通透版" : "阴天柔和版"
+                }
+            } else {
+                kind = "待定位"
+            }
+            disabled("当前底图  \(kind)", bg)
         }
         add("按生态带自动切换背景", #selector(toggleAutoBiome), bg, on: s.autoBiome)
         submenu("背景来源", bg, menu)
