@@ -11,7 +11,7 @@
 严格约束：
   * 只用 Resources/photos/ 里已有的真实照片，不下载、不生成、不拼接内容；
   * 只做逐像素的确定性调色与轻微取景位移，与 v1.5.0 主图的做法一致；
-  * 输出仍是普通 1536×924 JPEG，App 运行时只读文件，不做任何计算。
+  * 输出仍是普通 3840×2310 JPEG，App 运行时只读文件，不做任何计算。
 
 用法： python3 tools/gen_sunny_slots.py
 """
@@ -22,8 +22,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "Resources", "photos")
-W, H = 1536, 924
-QUALITY = 90
+W, H = 3840, 2310
+QUALITY = 88
 
 # 源图：全部来自 Resources/图片来源.txt 里已署名的 CC 授权实景照片
 BASES = {

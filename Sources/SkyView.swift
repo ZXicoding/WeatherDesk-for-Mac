@@ -313,10 +313,20 @@ final class SkyView: NSView {
     /// 缓存 key 必须带「目录 + 图名」，图名里含 2 小时档位。
     /// 旧版只用图名且夜档覆盖十几个小时，换城市不换图、深夜跟下午同图都出在这里。
     /// 档位边界与换城市时由 DesktopController 清缓存，用户中途换照片也能生效。
-    private static var photoCache: [String: CGImage] = [:]
+    ///
+    /// 用 NSCache 替代普通字典：高清底图（3840×2310，解码后单张约 35 MB）若全量常驻，
+    /// 29 张会轻松突破 1 GB。NSCache 带内存成本上限，在内存压力下自动淘汰最久未用项，
+    /// 既保证跨时段 / 换城市切换时常用图不重复解码，又不会无上限堆积导致内存泄漏。
+    private static let photoCache: NSCache<NSString, CGImage> = {
+        let c = NSCache<NSString, CGImage>()
+        // 上限 ≈ 14 张解码图（约 500 MB）：覆盖一天内所有 12 档 + 余量，远低于全量 29 张。
+        c.totalCostLimit = 3840 * 2310 * 4 * 14
+        c.countLimit = 24
+        return c
+    }()
 
     static func invalidateScenes() {
-        photoCache.removeAll()
+        photoCache.removeAllObjects()
         EcoScene.invalidate()
     }
 
@@ -421,12 +431,14 @@ final class SkyView: NSView {
         for folder in folders {
             let dir = folder.isEmpty ? root : root.appendingPathComponent(folder, isDirectory: true)
             for name in names {
-                let key = "\(dir.path)/\(name)"
-                if let hit = photoCache[key] { return hit }
+                let key = "\(dir.path)/\(name)" as NSString
+                if let hit = photoCache.object(forKey: key) { return hit }
                 let url = dir.appendingPathComponent("\(name).jpg")
                 // 不做「未命中」缓存：用户随时可能往目录里放新照片，下次 apply 就该生效
                 if let img = loadImage(at: url) {
-                    photoCache[key] = img
+                    // 成本按解码后实际字节数估算，NSCache 据此在超限时淘汰最久未用项
+                    photoCache.setObject(img, forKey: key,
+                                         cost: img.bytesPerRow * img.height)
                     return img
                 }
             }

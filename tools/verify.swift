@@ -252,10 +252,10 @@ struct Verify {
         let present = slotFiles.filter {
             FileManager.default.fileExists(atPath: photoRoot.appendingPathComponent($0).path) }
         ok("内置 12 张时段底图齐全（\(present.count)/12）", present.count == 12)
-        ok("时段图全部为 1536×924", present.allSatisfy { f in
+        ok("时段图全部为 3840×2310（高清）", present.allSatisfy { f in
             guard let data = try? Data(contentsOf: photoRoot.appendingPathComponent(f)),
                   let rep = NSBitmapImageRep(data: data) else { return false }
-            return rep.pixelsWide == 1536 && rep.pixelsHigh == 924
+            return rep.pixelsWide == 3840 && rep.pixelsHigh == 2310
         })
         func fnv(_ url: URL) -> UInt64? {
             guard let d = try? Data(contentsOf: url) else { return nil }
@@ -350,10 +350,10 @@ struct Verify {
         let sunPresent = sunFiles.filter {
             FileManager.default.fileExists(atPath: photoRoot.appendingPathComponent($0).path) }
         ok("内置 12 张艳阳版齐全（\(sunPresent.count)/12）", sunPresent.count == 12)
-        ok("艳阳版全部为 1536×924", sunPresent.allSatisfy { f in
+        ok("艳阳版全部为 3840×2310（高清）", sunPresent.allSatisfy { f in
             guard let data = try? Data(contentsOf: photoRoot.appendingPathComponent(f)),
                   let rep = NSBitmapImageRep(data: data) else { return false }
-            return rep.pixelsWide == 1536 && rep.pixelsHigh == 924
+            return rep.pixelsWide == 3840 && rep.pixelsHigh == 2310
         })
         let sunHashes = sunFiles.compactMap { fnv(photoRoot.appendingPathComponent($0)) }
         ok("12 张艳阳版内容两两不同", sunHashes.count == 12 && Set(sunHashes).count == 12)
@@ -404,11 +404,11 @@ struct Verify {
             ok("\(p) 文件名合法", !files.isEmpty && files.allSatisfy {
                 legal.contains(($0 as NSString).deletingPathExtension)
             })
-            ok("\(p) 全部裁成 1536×924", !files.isEmpty && files.allSatisfy { f in
+            ok("\(p) 全部为 3840×2310（高清）", !files.isEmpty && files.allSatisfy { f in
                 guard let data = try? Data(contentsOf: URL(fileURLWithPath: dir.path + "/" + f)),
                       let rep = NSBitmapImageRep(data: data)
                 else { return false }
-                return rep.pixelsWide == 1536 && rep.pixelsHigh == 924
+                return rep.pixelsWide == 3840 && rep.pixelsHigh == 2310
             })
         }
 
